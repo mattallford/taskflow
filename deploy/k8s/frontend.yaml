@@ -2,9 +2,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: taskflow-frontend
-  namespace: taskflow
+  namespace: #{Namespace}
 spec:
-  replicas: 2
+  replicas: #{ReplicaCount}
   selector:
     matchLabels:
       app: taskflow-frontend
@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: taskflow-frontend
-        image: mattallford/taskflow-web:latest
+        image: mattallford/taskflow-web:#{ImageTag}
         imagePullPolicy: Always
         ports:
         - containerPort: 3000
@@ -43,7 +43,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: taskflow-frontend-service
-  namespace: taskflow
+  namespace: #{Namespace}
 spec:
   selector:
     app: taskflow-frontend
