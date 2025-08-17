@@ -23,14 +23,27 @@ public class TasksControllerTests : IClassFixture<WebApplicationFactory<Program>
             builder.UseEnvironment("Testing");
             builder.ConfigureServices(services =>
             {
-                // Remove the real database context
-                var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(DbContextOptions<TaskDbContext>));
-                if (descriptor != null)
+                // Remove existing DbContext registration and all database providers
+                var dbContextDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(DbContextOptions<TaskDbContext>));
+                if (dbContextDescriptor != null)
                 {
-                    services.Remove(descriptor);
+                    services.Remove(dbContextDescriptor);
+                }
+                
+                var dbContextOptionsDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(DbContextOptions));
+                if (dbContextOptionsDescriptor != null)
+                {
+                    services.Remove(dbContextOptionsDescriptor);
                 }
 
-                // Add in-memory database for testing
+                // Remove any TaskDbContext registrations
+                var dbContextServiceDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(TaskDbContext));
+                if (dbContextServiceDescriptor != null)
+                {
+                    services.Remove(dbContextServiceDescriptor);
+                }
+
+                // Add clean in-memory database for testing
                 services.AddDbContext<TaskDbContext>(options =>
                 {
                     options.UseInMemoryDatabase($"TestDb_{Guid.NewGuid()}");

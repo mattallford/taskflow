@@ -24,14 +24,15 @@ AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 // Configure Entity Framework
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-var useInMemory = string.IsNullOrEmpty(connectionString) && builder.Environment.IsDevelopment();
+var useInMemory = string.IsNullOrEmpty(connectionString) && 
+                 (builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing"));
 
-if (useInMemory)
+if (useInMemory || builder.Environment.IsEnvironment("Testing"))
 {
-    // Use in-memory database for local development when PostgreSQL is not available
-    Log.Information("Using in-memory database for development");
+    // Use in-memory database for development and testing
+    Log.Information("Using in-memory database for {Environment}", builder.Environment.EnvironmentName);
     builder.Services.AddDbContext<TaskDbContext>(options =>
-        options.UseInMemoryDatabase("TaskFlowDev"));
+        options.UseInMemoryDatabase($"TaskFlow_{builder.Environment.EnvironmentName}"));
 }
 else
 {
