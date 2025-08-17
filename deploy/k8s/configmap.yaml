@@ -4,13 +4,8 @@ metadata:
   name: taskflow-config
   namespace: taskflow-dev
 data:
-  # API Configuration (backend only)
   ASPNETCORE_ENVIRONMENT: "Development"
   ASPNETCORE_URLS: "http://+:8080"
-  
-  # Application Info
   APP_NAME: "TaskFlow"
   APP_VERSION: "1.0.0"
-  
-  # Database Configuration
   DATABASE_TIMEOUT: "30"
