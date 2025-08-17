@@ -24,8 +24,7 @@ RUN dotnet publish TaskFlow.Api.csproj \
     -c Release \
     -o /app/publish \
     --no-restore \
-    --self-contained false \
-    /p:PublishReadyToRun=true
+    --self-contained false
 
 # Runtime stage
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
