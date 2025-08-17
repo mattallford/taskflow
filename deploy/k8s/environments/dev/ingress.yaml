@@ -1,0 +1,43 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: taskflow-ingress-dev
+  namespace: taskflow-dev
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: taskflow-dev.local
+    http:
+      paths:
+      # API routes
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: taskflow-api-dev
+            port:
+              number: 8080
+      - path: /health
+        pathType: Prefix
+        backend:
+          service:
+            name: taskflow-api-dev
+            port:
+              number: 8080
+      - path: /swagger
+        pathType: Prefix
+        backend:
+          service:
+            name: taskflow-api-dev
+            port:
+              number: 8080
+      # Frontend routes (catch-all)
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: taskflow-frontend-dev
+            port:
+              number: 3000

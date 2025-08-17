@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: taskflow-frontend-dev
+  namespace: taskflow-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: taskflow-frontend-dev
+  template:
+    metadata:
+      labels:
+        app: taskflow-frontend-dev
+    spec:
+      containers:
+      - name: taskflow-frontend
+        image: mattallford/taskflow-web:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: taskflow-frontend-dev
+  namespace: taskflow-dev
+spec:
+  selector:
+    app: taskflow-frontend-dev
+  ports:
+  - port: 3000
+    targetPort: 3000
+  type: ClusterIP
