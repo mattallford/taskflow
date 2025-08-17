@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: #{Namespace}
+  name: taskflow-dev
   labels:
     app: taskflow
-    environment: #{Environment}
+    environment: dev

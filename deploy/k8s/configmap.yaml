@@ -2,10 +2,10 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: taskflow-config
-  namespace: #{Namespace}
+  namespace: taskflow-dev
 data:
   # API Configuration (backend only)
-  ASPNETCORE_ENVIRONMENT: "#{Environment}"
+  ASPNETCORE_ENVIRONMENT: "Development"
   ASPNETCORE_URLS: "http://+:8080"
   
   # Application Info

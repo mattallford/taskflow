@@ -2,7 +2,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: taskflow-ingress
-  namespace: #{Namespace}
+  namespace: taskflow-dev
   annotations:
     # Removed rewrite-target annotation - it was breaking API routing
     # by rewriting /api/tasks to / which caused 404 errors
@@ -10,7 +10,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-  - host: #{IngressHost}
+  - host: taskflow-dev.local
     http:
       paths:
       # API routes

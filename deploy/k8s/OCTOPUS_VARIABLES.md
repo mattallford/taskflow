@@ -1,58 +1,119 @@
-# Octopus Deploy Variables - Simplified
+# Octopus Deploy Structured Variables
 
-This document describes the essential variables required for Octopus Deploy to correctly substitute values in the Kubernetes manifests.
+This document describes the structured variable paths required for Octopus Deploy to replace values in the Kubernetes manifests using the structured variable replacement feature.
 
-## Required Variables (Only 6!)
+## Overview
 
-| Variable | Description | Example Values |
-|----------|-------------|----------------|
-| `#{Namespace}` | Kubernetes namespace for deployment | `taskflow-dev`, `taskflow-test`, `taskflow-prod` |
-| `#{Environment}` | ASP.NET Core environment setting | `Development`, `Staging`, `Production` |
-| `#{ImageTag}` | Container image tag for both API and Web images | `latest`, `v1.0.0`, `#{Octopus.Release.Number}` |
-| `#{DatabaseName}` | PostgreSQL database name | `taskflowdb-dev`, `taskflowdb-test`, `taskflowdb-prod` |
-| `#{ReplicaCount}` | Number of replicas for API and Frontend | `1` (dev/test), `2` (prod) |
-| `#{IngressHost}` | Ingress hostname | `taskflow-dev.local`, `taskflow-test.local`, `taskflow.local` |
-| `#{ConnectionString}` | Database connection string (Base64 encoded) | See examples below |
+The manifests in `/deploy/k8s/` contain valid YAML with default values that can be replaced by Octopus Deploy using structured variable replacement. This approach is preferred over template syntax as it maintains valid YAML that can be deployed independently.
 
-## Static Values (No Variables Needed)
-- **Resource Limits**: Fixed at reasonable defaults
-- **Application Name/Version**: Static "TaskFlow" and "1.0.0"
-- **Database Timeout**: Fixed at 30 seconds
-- **PostgreSQL Credentials**: Fixed username/password (taskflow/taskflow123)
+Reference: [Structured Variables in Raw Kubernetes YAML](https://octopus.com/blog/structured-variables-raw-kubernetes-yaml)
 
-## Environment-Specific Examples
+## Required Structured Variables
+
+### Namespace Configuration
+**File**: `namespace.yaml`
+| Variable Path | Default Value | Description |
+|---------------|---------------|-------------|
+| `metadata.name` | `taskflow-dev` | Kubernetes namespace name |
+| `metadata.labels.environment` | `dev` | Environment label |
+
+### Secret Configuration
+**File**: `secret.yaml`
+| Variable Path | Default Value | Description |
+|---------------|---------------|-------------|
+| `metadata.namespace` | `taskflow-dev` | Target namespace |
+| `data.connection-string` | Base64 dev connection | Database connection string (Base64) |
+
+### ConfigMap Configuration
+**File**: `configmap.yaml`
+| Variable Path | Default Value | Description |
+|---------------|---------------|-------------|
+| `metadata.namespace` | `taskflow-dev` | Target namespace |
+| `data.ASPNETCORE_ENVIRONMENT` | `Development` | ASP.NET Core environment |
+
+### PostgreSQL Deployment
+**File**: `postgres.yaml`
+| Variable Path | Default Value | Description |
+|---------------|---------------|-------------|
+| `metadata.namespace` | `taskflow-dev` | Target namespace |
+| `spec.template.spec.containers[0].env[0].value` | `taskflowdb-dev` | PostgreSQL database name |
+| `spec.template.spec.containers[0].livenessProbe.exec.command[3]` | `taskflowdb-dev` | Liveness probe database name |
+| `spec.template.spec.containers[0].readinessProbe.exec.command[3]` | `taskflowdb-dev` | Readiness probe database name |
+
+### API Deployment
+**File**: `api.yaml`
+| Variable Path | Default Value | Description |
+|---------------|---------------|-------------|
+| `metadata.namespace` | `taskflow-dev` | Target namespace |
+| `spec.replicas` | `1` | Number of API replicas |
+| `spec.template.spec.containers[0].image` | `mattallford/taskflow-api:latest` | Container image with tag |
+
+### Frontend Deployment
+**File**: `frontend.yaml`
+| Variable Path | Default Value | Description |
+|---------------|---------------|-------------|
+| `metadata.namespace` | `taskflow-dev` | Target namespace |
+| `spec.replicas` | `1` | Number of frontend replicas |
+| `spec.template.spec.containers[0].image` | `mattallford/taskflow-web:latest` | Container image with tag |
+
+### Ingress Configuration
+**File**: `ingress.yaml`
+| Variable Path | Default Value | Description |
+|---------------|---------------|-------------|
+| `metadata.namespace` | `taskflow-dev` | Target namespace |
+| `spec.rules[0].host` | `taskflow-dev.local` | Ingress hostname |
+
+## Environment-Specific Variable Examples
 
 ### Development Environment
-```
-Namespace = taskflow-dev
-Environment = Development
-ImageTag = latest
-DatabaseName = taskflowdb-dev
-ReplicaCount = 1
-IngressHost = taskflow-dev.local
-ConnectionString = SG9zdD10YXNrZmxvdy1wb3N0Z3Jlcy1zZXJ2aWNlO0RhdGFiYXNlPXRhc2tmbG93ZGItZGV2O1VzZXJuYW1lPXRhc2tmbG93O1Bhc3N3b3JkPXRhc2tmbG93MTIz
+```json
+{
+  "metadata.name": "taskflow-dev",
+  "metadata.labels.environment": "dev",
+  "metadata.namespace": "taskflow-dev",
+  "data.ASPNETCORE_ENVIRONMENT": "Development",
+  "data.connection-string": "SG9zdD10YXNrZmxvdy1wb3N0Z3Jlcy1zZXJ2aWNlO0RhdGFiYXNlPXRhc2tmbG93ZGItZGV2O1VzZXJuYW1lPXRhc2tmbG93O1Bhc3N3b3JkPXRhc2tmbG93MTIz",
+  "spec.template.spec.containers[0].env[0].value": "taskflowdb-dev",
+  "spec.template.spec.containers[0].livenessProbe.exec.command[3]": "taskflowdb-dev",
+  "spec.template.spec.containers[0].readinessProbe.exec.command[3]": "taskflowdb-dev",
+  "spec.replicas": 1,
+  "spec.template.spec.containers[0].image": "mattallford/taskflow-api:latest",
+  "spec.rules[0].host": "taskflow-dev.local"
+}
 ```
 
 ### Test Environment
-```
-Namespace = taskflow-test
-Environment = Staging
-ImageTag = #{Octopus.Release.Number}
-DatabaseName = taskflowdb-test
-ReplicaCount = 1
-IngressHost = taskflow-test.local
-ConnectionString = SG9zdD10YXNrZmxvdy1wb3N0Z3Jlcy1zZXJ2aWNlO0RhdGFiYXNlPXRhc2tmbG93ZGItdGVzdDtVc2VybmFtZT10YXNrZmxvdztQYXNzd29yZD10YXNrZmxvdzEyMw==
+```json
+{
+  "metadata.name": "taskflow-test",
+  "metadata.labels.environment": "test",
+  "metadata.namespace": "taskflow-test",
+  "data.ASPNETCORE_ENVIRONMENT": "Staging",
+  "data.connection-string": "SG9zdD10YXNrZmxvdy1wb3N0Z3Jlcy1zZXJ2aWNlO0RhdGFiYXNlPXRhc2tmbG93ZGItdGVzdDtVc2VybmFtZT10YXNrZmxvdztQYXNzd29yZD10YXNrZmxvdzEyMw==",
+  "spec.template.spec.containers[0].env[0].value": "taskflowdb-test",
+  "spec.template.spec.containers[0].livenessProbe.exec.command[3]": "taskflowdb-test",
+  "spec.template.spec.containers[0].readinessProbe.exec.command[3]": "taskflowdb-test",
+  "spec.replicas": 1,
+  "spec.template.spec.containers[0].image": "mattallford/taskflow-api:#{Octopus.Release.Number}",
+  "spec.rules[0].host": "taskflow-test.local"
+}
 ```
 
 ### Production Environment
-```
-Namespace = taskflow-prod
-Environment = Production
-ImageTag = #{Octopus.Release.Number}
-DatabaseName = taskflowdb-prod
-ReplicaCount = 2
-IngressHost = taskflow.local
-ConnectionString = SG9zdD10YXNrZmxvdy1wb3N0Z3Jlcy1zZXJ2aWNlO0RhdGFiYXNlPXRhc2tmbG93ZGItcHJvZDtVc2VybmFtZT10YXNrZmxvdztQYXNzd29yZD10YXNrZmxvdzEyMw==
+```json
+{
+  "metadata.name": "taskflow-prod",
+  "metadata.labels.environment": "prod",
+  "metadata.namespace": "taskflow-prod",
+  "data.ASPNETCORE_ENVIRONMENT": "Production",
+  "data.connection-string": "SG9zdD10YXNrZmxvdy1wb3N0Z3Jlcy1zZXJ2aWNlO0RhdGFiYXNlPXRhc2tmbG93ZGItcHJvZDtVc2VybmFtZT10YXNrZmxvdztQYXNzd29yZD10YXNrZmxvdzEyMw==",
+  "spec.template.spec.containers[0].env[0].value": "taskflowdb-prod",
+  "spec.template.spec.containers[0].livenessProbe.exec.command[3]": "taskflowdb-prod",
+  "spec.template.spec.containers[0].readinessProbe.exec.command[3]": "taskflowdb-prod",
+  "spec.replicas": 2,
+  "spec.template.spec.containers[0].image": "mattallford/taskflow-api:#{Octopus.Release.Number}",
+  "spec.rules[0].host": "taskflow.local"
+}
 ```
 
 ## Connection String Examples (Base64 Encoded)
@@ -75,24 +136,36 @@ Raw: Host=taskflow-postgres-service;Database=taskflowdb-prod;Username=taskflow;P
 Base64: SG9zdD10YXNrZmxvdy1wb3N0Z3Jlcy1zZXJ2aWNlO0RhdGFiYXNlPXRhc2tmbG93ZGItcHJvZDtVc2VybmFtZT10YXNrZmxvdztQYXNzd29yZD10YXNrZmxvdzEyMw==
 ```
 
-## Octopus Deploy Setup
+## Octopus Deploy Configuration
 
-### Variable Sets
-Use scoped variables for each environment:
+### 1. Enable Structured Configuration Variables
+In your deployment step:
+1. Go to **Features** tab
+2. Enable "**Structured Configuration Variables**"
+3. Set target files to: `*.yaml`
 
-| Variable | Dev | Test | Prod |
-|----------|-----|------|------|
-| Namespace | taskflow-dev | taskflow-test | taskflow-prod |
-| Environment | Development | Staging | Production |
-| ImageTag | latest | #{Octopus.Release.Number} | #{Octopus.Release.Number} |
-| DatabaseName | taskflowdb-dev | taskflowdb-test | taskflowdb-prod |
-| ReplicaCount | 1 | 1 | 2 |
-| IngressHost | taskflow-dev.local | taskflow-test.local | taskflow.local |
+### 2. Define Variables
+Create project variables with the exact paths shown above. Use environment scoping for environment-specific values.
 
-### Deployment Process
-1. Use "Deploy Kubernetes containers" step
-2. Configure variable substitution in YAML files
-3. Set package feed to Docker Hub (mattallford)
-4. Ensure environment scoping for all variables
+### 3. Variable Naming Convention
+- Use dot notation for nested JSON paths
+- Array indices use square brackets: `[0]`, `[1]`, etc.
+- Scope variables to appropriate environments
 
-This simplified approach reduces complexity while maintaining environment flexibility.
+### 4. Deployment Process
+1. Package your Kubernetes manifests
+2. Use "Deploy Kubernetes containers" step  
+3. Configure structured variable replacement
+4. Deploy to target environment
+
+## Benefits of This Approach
+
+1. **Valid YAML**: Manifests are always syntactically correct
+2. **Testable**: Can be deployed without Octopus for testing
+3. **Maintainable**: Clear separation between defaults and overrides
+4. **Flexible**: Full JSON path access to any YAML property
+5. **Debuggable**: Easy to verify variable replacements
+
+## Testing Variable Replacement
+
+Use Octopus variable preview feature to verify that variables are being replaced correctly before deployment.
