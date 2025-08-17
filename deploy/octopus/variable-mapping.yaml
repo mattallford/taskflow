@@ -1,0 +1,480 @@
+# TaskFlow Octopus Deploy Variable Substitution Template
+# This file demonstrates how hard-coded values should be replaced with Octopus Deploy variables
+
+---
+# Namespace with environment-specific naming
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: "#{Kubernetes.Namespace}"  # Example: taskflow-dev, taskflow-staging, taskflow-prod
+  labels:
+    app: taskflow
+    environment: "#{Octopus.Environment.Name | ToLower}"
+    version: "#{Octopus.Release.Number}"
+
+---
+# ConfigMap with parameterized application settings
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: taskflow-config
+  namespace: "#{Kubernetes.Namespace}"
+  labels:
+    app: taskflow
+    version: "#{Octopus.Release.Number}"
+data:
+  # API Configuration (environment-specific)
+  ASPNETCORE_ENVIRONMENT: "#{AppSettings.AspNetCoreEnvironment}"  # Development, Staging, Production
+  ASPNETCORE_URLS: "#{AppSettings.AspNetCoreUrls}"  # http://+:8080
+  
+  # Application Metadata (build-time variables)
+  APP_NAME: "#{AppSettings.AppName}"  # TaskFlow
+  APP_VERSION: "#{Octopus.Release.Number}"  # 1.2.3
+  APP_DESCRIPTION: "#{AppSettings.AppDescription}"  # Modern task management application
+  
+  # Database Configuration (environment-specific)
+  DATABASE_TIMEOUT: "#{Database.Timeout}"  # 30, 60, 120 per environment
+  DATABASE_RETRY_COUNT: "#{Database.RetryCount}"  # 3, 5, 10 per environment
+  DATABASE_RETRY_DELAY: "#{Database.RetryDelayMs}"  # 2000, 5000, 10000 per environment
+  
+  # Logging Configuration (environment-specific)
+  LOGGING_LEVEL: "#{Logging.DefaultLevel}"  # Debug, Information, Warning
+  LOGGING_MICROSOFT_LEVEL: "#{Logging.MicrosoftLevel}"  # Information, Warning, Error
+  LOGGING_ENTITYFRAMEWORK_LEVEL: "#{Logging.EntityFrameworkLevel}"  # Information, Warning, Error
+
+---
+# Secret with external variable references (use sensitive variables)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: taskflow-secrets
+  namespace: "#{Kubernetes.Namespace}"
+  labels:
+    app: taskflow
+type: Opaque
+data:
+  # Database Credentials (all sensitive variables, base64 encoded by Octopus)
+  postgres-username: "#{Database.Username | ToBase64}"  # Sensitive variable
+  postgres-password: "#{Database.Password | ToBase64}"  # Sensitive variable
+  postgres-database: "#{Database.Name | ToBase64}"  # Could be sensitive
+  
+  # Connection String (sensitive variable, base64 encoded)
+  connection-string: "#{Database.ConnectionString | ToBase64}"  # Sensitive variable
+  
+  # Additional secrets for production
+  api-key: "#{Security.ApiKey | ToBase64}"  # Sensitive variable
+  jwt-secret: "#{Security.JwtSecret | ToBase64}"  # Sensitive variable
+
+---
+# PostgreSQL Deployment with environment-specific scaling and resources
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: taskflow-postgres
+  namespace: "#{Kubernetes.Namespace}"
+  labels:
+    app: taskflow
+    component: database
+    version: "#{Octopus.Release.Number}"
+spec:
+  replicas: "#{Database.ReplicaCount}"  # 1 for dev, 1 for staging, 2+ for prod
+  selector:
+    matchLabels:
+      app: taskflow-postgres
+  template:
+    metadata:
+      labels:
+        app: taskflow-postgres
+        version: "#{Octopus.Release.Number}"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        fsGroup: 999
+      containers:
+      - name: postgres
+        image: "#{Database.ImageName}:#{Database.ImageTag}"  # postgres:15, postgres:16
+        imagePullPolicy: "#{Container.ImagePullPolicy}"  # Never, IfNotPresent, Always
+        env:
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: taskflow-secrets
+              key: postgres-database
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: taskflow-secrets
+              key: postgres-username
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: taskflow-secrets
+              key: postgres-password
+        ports:
+        - containerPort: "#{Database.Port}"  # 5432
+        resources:
+          requests:
+            cpu: "#{Database.CpuRequest}"  # 100m, 200m, 500m
+            memory: "#{Database.MemoryRequest}"  # 256Mi, 512Mi, 1Gi
+          limits:
+            cpu: "#{Database.CpuLimit}"  # 500m, 1000m, 2000m
+            memory: "#{Database.MemoryLimit}"  # 512Mi, 1Gi, 2Gi
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - "#{Database.Username}"
+            - -d
+            - "#{Database.Name}"
+          initialDelaySeconds: "#{Database.LivenessInitialDelay}"  # 30, 60, 90
+          periodSeconds: "#{Database.LivenessPeriod}"  # 30, 60, 120
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - "#{Database.Username}"
+            - -d
+            - "#{Database.Name}"
+          initialDelaySeconds: "#{Database.ReadinessInitialDelay}"  # 5, 10, 15
+          periodSeconds: "#{Database.ReadinessPeriod}"  # 10, 15, 30
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: postgres-storage
+        # Environment-specific storage configuration
+        "#{Database.VolumeType}": "#{Database.VolumeConfig}"
+        # Examples:
+        # emptyDir: {} for dev
+        # persistentVolumeClaim: { claimName: taskflow-postgres-pvc } for prod
+
+---
+# API Deployment with environment-specific configuration
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: taskflow-api
+  namespace: "#{Kubernetes.Namespace}"
+  labels:
+    app: taskflow
+    component: api
+    version: "#{Octopus.Release.Number}"
+spec:
+  replicas: "#{Api.ReplicaCount}"  # 1 for dev, 2 for staging, 3+ for prod
+  strategy:
+    type: "#{Api.DeploymentStrategy}"  # Recreate, RollingUpdate
+    rollingUpdate:
+      maxSurge: "#{Api.MaxSurge}"  # 1, 25%, 50%
+      maxUnavailable: "#{Api.MaxUnavailable}"  # 0, 25%, 50%
+  selector:
+    matchLabels:
+      app: taskflow-api
+  template:
+    metadata:
+      labels:
+        app: taskflow-api
+        version: "#{Octopus.Release.Number}"
+      annotations:
+        prometheus.io/scrape: "#{Monitoring.PrometheusEnabled}"  # true, false
+        prometheus.io/port: "#{Monitoring.MetricsPort}"  # 8080
+        prometheus.io/path: "#{Monitoring.MetricsPath}"  # /metrics
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+      containers:
+      - name: taskflow-api
+        image: "#{Container.Registry}/#{Api.ImageName}:#{Api.ImageTag}"  # registry.com/taskflow-api:1.2.3
+        imagePullPolicy: "#{Container.ImagePullPolicy}"  # Never, IfNotPresent, Always
+        ports:
+        - containerPort: "#{Api.ContainerPort}"  # 8080
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: taskflow-config
+              key: ASPNETCORE_ENVIRONMENT
+        - name: ASPNETCORE_URLS
+          valueFrom:
+            configMapKeyRef:
+              name: taskflow-config
+              key: ASPNETCORE_URLS
+        - name: ConnectionStrings__DefaultConnection
+          valueFrom:
+            secretKeyRef:
+              name: taskflow-secrets
+              key: connection-string
+        - name: APP_VERSION
+          valueFrom:
+            configMapKeyRef:
+              name: taskflow-config
+              key: APP_VERSION
+        resources:
+          requests:
+            cpu: "#{Api.CpuRequest}"  # 100m, 200m, 500m
+            memory: "#{Api.MemoryRequest}"  # 128Mi, 256Mi, 512Mi
+          limits:
+            cpu: "#{Api.CpuLimit}"  # 500m, 1000m, 2000m
+            memory: "#{Api.MemoryLimit}"  # 256Mi, 512Mi, 1Gi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: "#{Api.ContainerPort}"
+          initialDelaySeconds: "#{Api.LivenessInitialDelay}"  # 30, 60, 90
+          periodSeconds: "#{Api.LivenessPeriod}"  # 30, 60, 120
+          timeoutSeconds: "#{Api.LivenessTimeout}"  # 5, 10, 15
+          failureThreshold: "#{Api.LivenessFailures}"  # 3, 5, 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: "#{Api.ContainerPort}"
+          initialDelaySeconds: "#{Api.ReadinessInitialDelay}"  # 5, 10, 15
+          periodSeconds: "#{Api.ReadinessPeriod}"  # 10, 15, 30
+          timeoutSeconds: "#{Api.ReadinessTimeout}"  # 3, 5, 10
+          failureThreshold: "#{Api.ReadinessFailures}"  # 3, 5, 10
+
+---
+# Frontend Deployment with environment-specific configuration
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: taskflow-frontend
+  namespace: "#{Kubernetes.Namespace}"
+  labels:
+    app: taskflow
+    component: frontend
+    version: "#{Octopus.Release.Number}"
+spec:
+  replicas: "#{Frontend.ReplicaCount}"  # 1 for dev, 2 for staging, 3+ for prod
+  strategy:
+    type: "#{Frontend.DeploymentStrategy}"  # Recreate, RollingUpdate
+    rollingUpdate:
+      maxSurge: "#{Frontend.MaxSurge}"  # 1, 25%, 50%
+      maxUnavailable: "#{Frontend.MaxUnavailable}"  # 0, 25%, 50%
+  selector:
+    matchLabels:
+      app: taskflow-frontend
+  template:
+    metadata:
+      labels:
+        app: taskflow-frontend
+        version: "#{Octopus.Release.Number}"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        fsGroup: 101
+      containers:
+      - name: taskflow-frontend
+        image: "#{Container.Registry}/#{Frontend.ImageName}:#{Frontend.ImageTag}"  # registry.com/taskflow-web:1.2.3
+        imagePullPolicy: "#{Container.ImagePullPolicy}"  # Never, IfNotPresent, Always
+        ports:
+        - containerPort: "#{Frontend.ContainerPort}"  # 3000
+        resources:
+          requests:
+            cpu: "#{Frontend.CpuRequest}"  # 50m, 100m, 200m
+            memory: "#{Frontend.MemoryRequest}"  # 64Mi, 128Mi, 256Mi
+          limits:
+            cpu: "#{Frontend.CpuLimit}"  # 200m, 500m, 1000m
+            memory: "#{Frontend.MemoryLimit}"  # 128Mi, 256Mi, 512Mi
+        livenessProbe:
+          httpGet:
+            path: /
+            port: "#{Frontend.ContainerPort}"
+          initialDelaySeconds: "#{Frontend.LivenessInitialDelay}"  # 10, 20, 30
+          periodSeconds: "#{Frontend.LivenessPeriod}"  # 30, 60, 120
+        readinessProbe:
+          httpGet:
+            path: /
+            port: "#{Frontend.ContainerPort}"
+          initialDelaySeconds: "#{Frontend.ReadinessInitialDelay}"  # 5, 10, 15
+          periodSeconds: "#{Frontend.ReadinessPeriod}"  # 10, 15, 30
+
+---
+# API Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: taskflow-api-service
+  namespace: "#{Kubernetes.Namespace}"
+  labels:
+    app: taskflow
+    component: api
+spec:
+  type: ClusterIP
+  ports:
+  - port: "#{Api.ServicePort}"  # 8080
+    targetPort: "#{Api.ContainerPort}"  # 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: taskflow-api
+
+---
+# Frontend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: taskflow-frontend-service
+  namespace: "#{Kubernetes.Namespace}"
+  labels:
+    app: taskflow
+    component: frontend
+spec:
+  type: ClusterIP
+  ports:
+  - port: "#{Frontend.ServicePort}"  # 3000
+    targetPort: "#{Frontend.ContainerPort}"  # 3000
+    protocol: TCP
+    name: http
+  selector:
+    app: taskflow-frontend
+
+---
+# Database Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: taskflow-postgres-service
+  namespace: "#{Kubernetes.Namespace}"
+  labels:
+    app: taskflow
+    component: database
+spec:
+  type: ClusterIP
+  ports:
+  - port: "#{Database.ServicePort}"  # 5432
+    targetPort: "#{Database.Port}"  # 5432
+    protocol: TCP
+    name: postgres
+  selector:
+    app: taskflow-postgres
+
+---
+# Ingress with environment-specific configuration
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: taskflow-ingress
+  namespace: "#{Kubernetes.Namespace}"
+  labels:
+    app: taskflow
+    component: ingress
+    version: "#{Octopus.Release.Number}"
+  annotations:
+    # Environment-specific ingress configuration
+    kubernetes.io/ingress.class: "#{Ingress.ClassName}"  # nginx, traefik, alb
+    nginx.ingress.kubernetes.io/ssl-redirect: "#{Ingress.SslRedirect}"  # false for dev, true for prod
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "#{Ingress.ForceSslRedirect}"  # false for dev, true for prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "#{Ingress.MaxBodySize}"  # 1m, 10m, 50m
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "#{Ingress.ReadTimeout}"  # 60, 120, 300
+    # TLS configuration for production
+    cert-manager.io/cluster-issuer: "#{Ingress.TlsIssuer}"  # letsencrypt-prod, enterprise-ca
+spec:
+  ingressClassName: "#{Ingress.ClassName}"  # nginx
+  # TLS configuration (production only)
+  "#{if Ingress.EnableTls}tls:#{/if}"
+  "#{if Ingress.EnableTls}- hosts:#{/if}"
+  "#{if Ingress.EnableTls}  - #{Ingress.Hostname}#{/if}"
+  "#{if Ingress.EnableTls}  secretName: #{Ingress.TlsSecretName}#{/if}"
+  rules:
+  - host: "#{Ingress.Hostname}"  # taskflow-dev.example.com, taskflow.example.com
+    http:
+      paths:
+      # API routes
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: taskflow-api-service
+            port:
+              number: "#{Api.ServicePort}"
+      - path: /health
+        pathType: Prefix
+        backend:
+          service:
+            name: taskflow-api-service
+            port:
+              number: "#{Api.ServicePort}"
+      - path: /swagger
+        pathType: Prefix
+        backend:
+          service:
+            name: taskflow-api-service
+            port:
+              number: "#{Api.ServicePort}"
+      # Frontend routes (catch-all)
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: taskflow-frontend-service
+            port:
+              number: "#{Frontend.ServicePort}"
+
+---
+# Example: Persistent Volume Claim for Production Database
+# Only applied when Database.VolumeType = persistentVolumeClaim
+"#{if Database.UsePersistentStorage}"
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: taskflow-postgres-pvc
+  namespace: "#{Kubernetes.Namespace}"
+  labels:
+    app: taskflow
+    component: database
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: "#{Database.StorageSize}"  # 1Gi, 10Gi, 100Gi
+  storageClassName: "#{Database.StorageClass}"  # standard, ssd, premium
+"#{/if}"
+
+---
+# Example: Network Policy for Production Security
+# Only applied in production environments
+"#{if Security.EnableNetworkPolicy}"
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: taskflow-network-policy
+  namespace: "#{Kubernetes.Namespace}"
+spec:
+  podSelector:
+    matchLabels:
+      app: taskflow
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow traffic from ingress controller
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: "#{Ingress.ControllerNamespace}"  # ingress-nginx, kube-system
+  # Allow internal traffic between TaskFlow components
+  - from:
+    - podSelector:
+        matchLabels:
+          app: taskflow
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+  # Allow traffic to external services (customize per environment)
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443  # HTTPS
+    - protocol: TCP
+      port: 80   # HTTP
+"#{/if}"

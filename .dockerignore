@@ -1,0 +1,89 @@
+# Root .dockerignore for API container builds
+# This file is used when building from repository root
+
+# Version control
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+*.md
+docs/
+
+# CI/CD
+.github/
+.vscode/
+.idea/
+
+# Build artifacts
+**/bin/
+**/obj/
+**/out/
+**/publish/
+
+# Test results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+coverage/
+
+# NuGet packages
+*.nupkg
+*.snupkg
+.nuget/
+
+# User-specific files
+*.user
+*.userosscache
+*.sln.docstates
+secrets.json
+
+# Environment files
+.env*
+*.env
+
+# Node.js (exclude frontend for API builds)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+package-lock.json
+yarn.lock
+
+# Frontend build artifacts
+**/build/
+**/dist/
+
+# Deployment
+deploy/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Certificates
+*.pfx
+*.p12
+*.key
+*.crt
+*.pem
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp

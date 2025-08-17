@@ -1,0 +1,69 @@
+# .NET build artifacts
+bin/
+obj/
+out/
+
+# Test results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+
+# Visual Studio files
+.vs/
+*.user
+*.userosscache
+*.sln.docstates
+
+# JetBrains Rider
+.idea/
+
+# NuGet packages
+*.nupkg
+*.snupkg
+.nuget/
+
+# ASP.NET Core specific
+appsettings.local.json
+appsettings.*.local.json
+
+# Entity Framework
+Migrations/
+
+# User secrets
+secrets.json
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.production
+
+# Logs
+logs/
+*.log
+
+# Runtime generated
+wwwroot/dist/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+README.md
+*.md
+
+# Certificates
+*.pfx
+*.p12
+*.key
+*.crt
+*.pem
