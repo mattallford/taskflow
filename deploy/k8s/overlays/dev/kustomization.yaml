@@ -32,10 +32,10 @@ patches:
       path: /spec/template/spec/containers/0/env/0/value
       value: "taskflowdb-dev"
     - op: replace
-      path: /spec/template/spec/containers/0/livenessProbe/exec/command/3
+      path: /spec/template/spec/containers/0/livenessProbe/exec/command/4
       value: "taskflowdb-dev"
     - op: replace
-      path: /spec/template/spec/containers/0/readinessProbe/exec/command/3
+      path: /spec/template/spec/containers/0/readinessProbe/exec/command/4
       value: "taskflowdb-dev"
   target:
     group: apps
