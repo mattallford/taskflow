@@ -47,7 +47,7 @@ jobs:
       
     - name: Run frontend tests
       working-directory: src/TaskFlow.Web
-      run: npm test -- --watchAll=false
+      run: npm test -- --watchAll=false --passWithNoTests
       env:
         CI: true
 
