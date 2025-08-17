@@ -7,9 +7,6 @@ metadata:
 resources:
 - ../../base
 
-namePrefix: ""
-nameSuffix: ""
-
 namespace: taskflow-dev
 
 images:
@@ -19,36 +16,23 @@ images:
   newTag: latest
 
 patches:
-- patch: |-
-    - op: replace
-      path: /data/ASPNETCORE_ENVIRONMENT
-      value: "Development"
+- path: configmap-patch.yaml
   target:
     kind: ConfigMap
     name: taskflow-config
-
-- patch: |-
-    - op: replace
-      path: /spec/template/spec/containers/0/env/0/value
-      value: "taskflowdb-dev"
-    - op: replace
-      path: /spec/template/spec/containers/0/livenessProbe/exec/command/4
-      value: "taskflowdb-dev"
-    - op: replace
-      path: /spec/template/spec/containers/0/readinessProbe/exec/command/4
-      value: "taskflowdb-dev"
+- path: postgres-patch.yaml
   target:
-    group: apps
-    version: v1
     kind: Deployment
     name: taskflow-postgres
-
-- patch: |-
-    - op: replace
-      path: /spec/rules/0/host
-      value: "taskflow-dev.local"
+- path: ingress-patch.yaml
   target:
-    group: networking.k8s.io
-    version: v1
     kind: Ingress
     name: taskflow-ingress
+
+labels:
+- pairs:
+    environment: dev
+    app.kubernetes.io/instance: taskflow-dev
+
+generatorOptions:
+  disableNameSuffixHash: true
