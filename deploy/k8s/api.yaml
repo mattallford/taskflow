@@ -15,10 +15,17 @@ spec:
     spec:
       containers:
       - name: taskflow-api
-        image: taskflow-api:latest
-        imagePullPolicy: Never
+        image: mattallford/taskflow-api:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 8080
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
         env:
         - name: ASPNETCORE_ENVIRONMENT
           valueFrom:

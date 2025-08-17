@@ -16,6 +16,7 @@ spec:
       containers:
       - name: postgres
         image: postgres:15
+        imagePullPolicy: Always
         env:
         - name: POSTGRES_DB
           value: "taskflowdb"
@@ -31,6 +32,33 @@ spec:
               key: postgres-password
         ports:
         - containerPort: 5432
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          exec:
+            command:
+              - pg_isready
+              - -U
+              - taskflow
+              - -d
+              - taskflowdb
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          exec:
+            command:
+              - pg_isready
+              - -U
+              - taskflow
+              - -d
+              - taskflowdb
+          initialDelaySeconds: 10
+          periodSeconds: 15
         volumeMounts:
         - name: postgres-storage
           mountPath: /var/lib/postgresql/data
