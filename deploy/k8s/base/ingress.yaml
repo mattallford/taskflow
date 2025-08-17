@@ -2,13 +2,13 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: taskflow-ingress
-  namespace: taskflow-dev
+  namespace: taskflow
   annotations:
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
 spec:
   ingressClassName: nginx
   rules:
-  - host: taskflow-dev.local
+  - host: taskflow.local
     http:
       paths:
       - path: /api

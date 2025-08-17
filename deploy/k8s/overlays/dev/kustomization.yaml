@@ -1,0 +1,54 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: taskflow-dev
+
+resources:
+- ../../base
+
+namePrefix: ""
+nameSuffix: ""
+
+namespace: taskflow-dev
+
+images:
+- name: mattallford/taskflow-api
+  newTag: latest
+- name: mattallford/taskflow-web
+  newTag: latest
+
+patches:
+- patch: |-
+    - op: replace
+      path: /data/ASPNETCORE_ENVIRONMENT
+      value: "Development"
+  target:
+    kind: ConfigMap
+    name: taskflow-config
+
+- patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/env/0/value
+      value: "taskflowdb-dev"
+    - op: replace
+      path: /spec/template/spec/containers/0/livenessProbe/exec/command/3
+      value: "taskflowdb-dev"
+    - op: replace
+      path: /spec/template/spec/containers/0/readinessProbe/exec/command/3
+      value: "taskflowdb-dev"
+  target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: taskflow-postgres
+
+- patch: |-
+    - op: replace
+      path: /spec/rules/0/host
+      value: "taskflow-dev.local"
+  target:
+    group: networking.k8s.io
+    version: v1
+    kind: Ingress
+    name: taskflow-ingress

@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: taskflow-postgres
-  namespace: taskflow-dev
+  namespace: taskflow
 spec:
   replicas: 1
   selector:
@@ -19,7 +19,7 @@ spec:
         imagePullPolicy: Always
         env:
         - name: POSTGRES_DB
-          value: "taskflowdb-dev"
+          value: "taskflowdb"
         - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
@@ -46,7 +46,7 @@ spec:
               - -U
               - taskflow
               - -d
-              - taskflowdb-dev
+              - taskflowdb
           initialDelaySeconds: 30
           periodSeconds: 30
         readinessProbe:
@@ -56,7 +56,7 @@ spec:
               - -U
               - taskflow
               - -d
-              - taskflowdb-dev
+              - taskflowdb
           initialDelaySeconds: 10
           periodSeconds: 15
         volumeMounts:
@@ -65,16 +65,3 @@ spec:
       volumes:
       - name: postgres-storage
         emptyDir: {}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: taskflow-postgres-service
-  namespace: taskflow-dev
-spec:
-  selector:
-    app: taskflow-postgres
-  ports:
-  - port: 5432
-    targetPort: 5432
-  type: ClusterIP

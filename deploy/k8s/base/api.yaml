@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: taskflow-api
-  namespace: taskflow-dev
+  namespace: taskflow
 spec:
   replicas: 1
   selector:
@@ -54,16 +54,3 @@ spec:
             port: 8080
           initialDelaySeconds: 10
           periodSeconds: 15
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: taskflow-api-service
-  namespace: taskflow-dev
-spec:
-  selector:
-    app: taskflow-api
-  ports:
-  - port: 8080
-    targetPort: 8080
-  type: ClusterIP
