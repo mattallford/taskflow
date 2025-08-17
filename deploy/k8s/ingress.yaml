@@ -4,8 +4,6 @@ metadata:
   name: taskflow-ingress
   namespace: taskflow-dev
   annotations:
-    # Removed rewrite-target annotation - it was breaking API routing
-    # by rewriting /api/tasks to / which caused 404 errors
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
 spec:
   ingressClassName: nginx
