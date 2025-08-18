@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: taskflow-postgres
+spec:
+  template:
+    spec:
+      containers:
+      - name: postgres
+        env:
+        - name: POSTGRES_DB
+          value: "taskflowdb-test"
+        livenessProbe:
+          exec:
+            command:
+              - pg_isready
+              - -U
+              - taskflow
+              - -d
+              - taskflowdb-test
+        readinessProbe:
+          exec:
+            command:
+              - pg_isready
+              - -U
+              - taskflow
+              - -d
+              - taskflowdb-test

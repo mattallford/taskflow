@@ -1,0 +1,38 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: taskflow-test
+
+resources:
+- ../../base
+
+namespace: taskflow-test
+
+images:
+- name: mattallford/taskflow-api
+  newTag: latest
+- name: mattallford/taskflow-web
+  newTag: latest
+
+patches:
+- path: configmap-patch.yaml
+  target:
+    kind: ConfigMap
+    name: taskflow-config
+- path: postgres-patch.yaml
+  target:
+    kind: Deployment
+    name: taskflow-postgres
+- path: ingress-patch.yaml
+  target:
+    kind: Ingress
+    name: taskflow-ingress
+
+labels:
+- pairs:
+    environment: test
+    app.kubernetes.io/instance: taskflow-test
+
+generatorOptions:
+  disableNameSuffixHash: true
