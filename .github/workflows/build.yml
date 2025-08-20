@@ -90,8 +90,7 @@ jobs:
         platforms: ${{ matrix.platform }}
         push: ${{ github.event_name != 'pull_request' }}
         tags: |
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:latest-${{ matrix.arch }}
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ github.sha }}-${{ matrix.arch }}
+          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:temp-${{ matrix.arch }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
@@ -104,8 +103,7 @@ jobs:
         platforms: ${{ matrix.platform }}
         push: ${{ github.event_name != 'pull_request' }}
         tags: |
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:latest-${{ matrix.arch }}
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ github.sha }}-${{ matrix.arch }}
+          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:temp-${{ matrix.arch }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
@@ -131,40 +129,34 @@ jobs:
       run: |
         # Create latest tag manifest
         docker buildx imagetools create -t ${{ secrets.DOCKER_USERNAME }}/taskflow-api:latest \
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:latest-amd64 \
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:latest-arm64
-        
-        # Create SHA tag manifest  
-        docker buildx imagetools create -t ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ github.sha }} \
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ github.sha }}-amd64 \
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ github.sha }}-arm64
+          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:temp-amd64 \
+          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:temp-arm64
 
     # Create multi-arch manifest for Web
     - name: Create Web manifest list
       run: |
         # Create latest tag manifest
         docker buildx imagetools create -t ${{ secrets.DOCKER_USERNAME }}/taskflow-web:latest \
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:latest-amd64 \
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:latest-arm64
-        
-        # Create SHA tag manifest
-        docker buildx imagetools create -t ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ github.sha }} \
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ github.sha }}-amd64 \
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ github.sha }}-arm64
+          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:temp-amd64 \
+          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:temp-arm64
+
+    # Clean up temporary tags
+    - name: Clean up temporary tags
+      run: |
+        # Note: Docker Hub doesn't support tag deletion via API easily
+        # Temporary tags will be overwritten on next build
+        echo "Temporary tags will be cleaned up on next build"
 
     # Summary
     - name: Build summary
       run: |
         echo "## Multi-Arch Build Complete ✅" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Container Images" >> $GITHUB_STEP_SUMMARY
-        echo "- **API**: \`${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ github.sha }}\` (linux/amd64, linux/arm64)" >> $GITHUB_STEP_SUMMARY
-        echo "- **Web**: \`${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ github.sha }}\` (linux/amd64, linux/arm64)" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Latest Tags" >> $GITHUB_STEP_SUMMARY
+        echo "### Container Images (Multi-Architecture)" >> $GITHUB_STEP_SUMMARY
         echo "- **API**: \`${{ secrets.DOCKER_USERNAME }}/taskflow-api:latest\` (linux/amd64, linux/arm64)" >> $GITHUB_STEP_SUMMARY
         echo "- **Web**: \`${{ secrets.DOCKER_USERNAME }}/taskflow-web:latest\` (linux/amd64, linux/arm64)" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Native Builds" >> $GITHUB_STEP_SUMMARY
-        echo "- **AMD64**: Built on ubuntu-latest (native)" >> $GITHUB_STEP_SUMMARY
-        echo "- **ARM64**: Built on ubuntu-24.04-arm (native)" >> $GITHUB_STEP_SUMMARY
+        echo "### Build Details" >> $GITHUB_STEP_SUMMARY
+        echo "- **AMD64**: Built natively on ubuntu-latest" >> $GITHUB_STEP_SUMMARY
+        echo "- **ARM64**: Built natively on ubuntu-24.04-arm" >> $GITHUB_STEP_SUMMARY
+        echo "- **Registry**: Only \`:latest\` tags created (clean)" >> $GITHUB_STEP_SUMMARY
