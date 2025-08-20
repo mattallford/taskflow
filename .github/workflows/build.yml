@@ -90,7 +90,7 @@ jobs:
         platforms: ${{ matrix.platform }}
         push: ${{ github.event_name != 'pull_request' }}
         tags: |
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:temp-${{ matrix.arch }}
+          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ github.run_number }}-${{ matrix.arch }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
@@ -103,7 +103,7 @@ jobs:
         platforms: ${{ matrix.platform }}
         push: ${{ github.event_name != 'pull_request' }}
         tags: |
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:temp-${{ matrix.arch }}
+          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ github.run_number }}-${{ matrix.arch }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
@@ -129,23 +129,18 @@ jobs:
       run: |
         # Create latest tag manifest
         docker buildx imagetools create -t ${{ secrets.DOCKER_USERNAME }}/taskflow-api:latest \
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:temp-amd64 \
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:temp-arm64
+          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ github.run_number }}-amd64 \
+          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ github.run_number }}-arm64
 
     # Create multi-arch manifest for Web
     - name: Create Web manifest list
       run: |
         # Create latest tag manifest
         docker buildx imagetools create -t ${{ secrets.DOCKER_USERNAME }}/taskflow-web:latest \
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:temp-amd64 \
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:temp-arm64
+          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ github.run_number }}-amd64 \
+          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ github.run_number }}-arm64
 
-    # Clean up temporary tags
-    - name: Clean up temporary tags
-      run: |
-        # Note: Docker Hub doesn't support tag deletion via API easily
-        # Temporary tags will be overwritten on next build
-        echo "Temporary tags will be cleaned up on next build"
+    # Note: Build-specific tags remain for debugging/rollback if needed
 
     # Summary
     - name: Build summary
