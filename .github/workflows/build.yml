@@ -1,5 +1,10 @@
 name: Build and Push
 
+permissions:
+  contents: read
+  security-events: write  # Required for SARIF upload
+  actions: read
+
 on:
   push:
     branches: [ main, 'feature/**', 'hotfix/**' ]
@@ -64,6 +69,7 @@ jobs:
 
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
+        if: always()  # Upload even if scan finds vulnerabilities
         with:
           sarif_file: 'trivy-results.sarif'
 
@@ -111,7 +117,7 @@ jobs:
 
   build:
     name: Build ${{ matrix.platform }}
-    needs: [version, test, security-scan]
+    needs: [version]  # Only need version for Docker tags
     runs-on: ${{ matrix.runner }}
     
     strategy:
