@@ -10,8 +10,8 @@ env:
   REGISTRY: docker.io
 
 jobs:
-  test:
-    name: Test
+  version:
+    name: Calculate Version
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.gitversion.outputs.semVer }}
@@ -34,6 +34,15 @@ jobs:
     - name: Determine Version
       id: gitversion
       uses: gittools/actions/gitversion/execute@v1.1.1
+
+  test:
+    name: Test
+    needs: version
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
 
     # .NET API Tests
     - name: Setup .NET
@@ -70,7 +79,7 @@ jobs:
 
   build:
     name: Build ${{ matrix.platform }}
-    needs: test
+    needs: [version, test]
     runs-on: ${{ matrix.runner }}
     
     strategy:
@@ -107,7 +116,7 @@ jobs:
         platforms: ${{ matrix.platform }}
         push: ${{ github.event_name != 'pull_request' }}
         tags: |
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ github.run_number }}-${{ matrix.arch }}
+          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ needs.version.outputs.version }}-${{ matrix.arch }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
@@ -120,13 +129,13 @@ jobs:
         platforms: ${{ matrix.platform }}
         push: ${{ github.event_name != 'pull_request' }}
         tags: |
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ github.run_number }}-${{ matrix.arch }}
+          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ needs.version.outputs.version }}-${{ matrix.arch }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
   manifest:
     name: Create Multi-Arch Manifests
-    needs: [test, build]
+    needs: [version, build]
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
     
@@ -145,27 +154,27 @@ jobs:
     - name: Create API manifest list
       run: |
         # Create versioned tag manifest
-        docker buildx imagetools create -t ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ needs.test.outputs.version }} \
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ github.run_number }}-amd64 \
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ github.run_number }}-arm64
+        docker buildx imagetools create -t ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ needs.version.outputs.version }} \
+          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ needs.version.outputs.version }}-amd64 \
+          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ needs.version.outputs.version }}-arm64
         
         # Create latest tag manifest
         docker buildx imagetools create -t ${{ secrets.DOCKER_USERNAME }}/taskflow-api:latest \
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ github.run_number }}-amd64 \
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ github.run_number }}-arm64
+          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ needs.version.outputs.version }}-amd64 \
+          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ needs.version.outputs.version }}-arm64
 
     # Create multi-arch manifest for Web
     - name: Create Web manifest list
       run: |
         # Create versioned tag manifest
-        docker buildx imagetools create -t ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ needs.test.outputs.version }} \
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ github.run_number }}-amd64 \
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ github.run_number }}-arm64
+        docker buildx imagetools create -t ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ needs.version.outputs.version }} \
+          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ needs.version.outputs.version }}-amd64 \
+          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ needs.version.outputs.version }}-arm64
         
         # Create latest tag manifest
         docker buildx imagetools create -t ${{ secrets.DOCKER_USERNAME }}/taskflow-web:latest \
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ github.run_number }}-amd64 \
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ github.run_number }}-arm64
+          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ needs.version.outputs.version }}-amd64 \
+          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ needs.version.outputs.version }}-arm64
 
     # Note: Build-specific tags remain for debugging/rollback if needed
 
@@ -175,14 +184,14 @@ jobs:
         echo "## Multi-Arch Build Complete ✅" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Version Information" >> $GITHUB_STEP_SUMMARY
-        echo "- **Semantic Version**: \`${{ needs.test.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
-        echo "- **Full Version**: \`${{ needs.test.outputs.fullSemVer }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Semantic Version**: \`${{ needs.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Full Version**: \`${{ needs.version.outputs.fullSemVer }}\`" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Container Images (Multi-Architecture)" >> $GITHUB_STEP_SUMMARY
         echo "- **API Latest**: \`${{ secrets.DOCKER_USERNAME }}/taskflow-api:latest\` (linux/amd64, linux/arm64)" >> $GITHUB_STEP_SUMMARY
-        echo "- **API Versioned**: \`${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ needs.test.outputs.version }}\` (linux/amd64, linux/arm64)" >> $GITHUB_STEP_SUMMARY
+        echo "- **API Versioned**: \`${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ needs.version.outputs.version }}\` (linux/amd64, linux/arm64)" >> $GITHUB_STEP_SUMMARY
         echo "- **Web Latest**: \`${{ secrets.DOCKER_USERNAME }}/taskflow-web:latest\` (linux/amd64, linux/arm64)" >> $GITHUB_STEP_SUMMARY
-        echo "- **Web Versioned**: \`${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ needs.test.outputs.version }}\` (linux/amd64, linux/arm64)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Web Versioned**: \`${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ needs.version.outputs.version }}\` (linux/amd64, linux/arm64)" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Build Details" >> $GITHUB_STEP_SUMMARY
         echo "- **AMD64**: Built natively on ubuntu-latest" >> $GITHUB_STEP_SUMMARY
