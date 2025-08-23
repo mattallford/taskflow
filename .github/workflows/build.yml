@@ -13,10 +13,27 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.gitversion.outputs.semVer }}
+      fullSemVer: ${{ steps.gitversion.outputs.fullSemVer }}
+      major: ${{ steps.gitversion.outputs.major }}
+      minor: ${{ steps.gitversion.outputs.minor }}
+      patch: ${{ steps.gitversion.outputs.patch }}
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Required for GitVersion
+
+    - name: Install GitVersion
+      uses: gittools/actions/gitversion/setup@v1.1.1
+      with:
+        versionSpec: '5.x'
+
+    - name: Determine Version
+      id: gitversion
+      uses: gittools/actions/gitversion/execute@v1.1.1
 
     # .NET API Tests
     - name: Setup .NET
@@ -109,7 +126,7 @@ jobs:
 
   manifest:
     name: Create Multi-Arch Manifests
-    needs: build
+    needs: [test, build]
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
     
@@ -127,6 +144,11 @@ jobs:
     # Create multi-arch manifest for API
     - name: Create API manifest list
       run: |
+        # Create versioned tag manifest
+        docker buildx imagetools create -t ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ needs.test.outputs.version }} \
+          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ github.run_number }}-amd64 \
+          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ github.run_number }}-arm64
+        
         # Create latest tag manifest
         docker buildx imagetools create -t ${{ secrets.DOCKER_USERNAME }}/taskflow-api:latest \
           ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ github.run_number }}-amd64 \
@@ -135,6 +157,11 @@ jobs:
     # Create multi-arch manifest for Web
     - name: Create Web manifest list
       run: |
+        # Create versioned tag manifest
+        docker buildx imagetools create -t ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ needs.test.outputs.version }} \
+          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ github.run_number }}-amd64 \
+          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ github.run_number }}-arm64
+        
         # Create latest tag manifest
         docker buildx imagetools create -t ${{ secrets.DOCKER_USERNAME }}/taskflow-web:latest \
           ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ github.run_number }}-amd64 \
@@ -147,11 +174,17 @@ jobs:
       run: |
         echo "## Multi-Arch Build Complete ✅" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Version Information" >> $GITHUB_STEP_SUMMARY
+        echo "- **Semantic Version**: \`${{ needs.test.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Full Version**: \`${{ needs.test.outputs.fullSemVer }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Container Images (Multi-Architecture)" >> $GITHUB_STEP_SUMMARY
-        echo "- **API**: \`${{ secrets.DOCKER_USERNAME }}/taskflow-api:latest\` (linux/amd64, linux/arm64)" >> $GITHUB_STEP_SUMMARY
-        echo "- **Web**: \`${{ secrets.DOCKER_USERNAME }}/taskflow-web:latest\` (linux/amd64, linux/arm64)" >> $GITHUB_STEP_SUMMARY
+        echo "- **API Latest**: \`${{ secrets.DOCKER_USERNAME }}/taskflow-api:latest\` (linux/amd64, linux/arm64)" >> $GITHUB_STEP_SUMMARY
+        echo "- **API Versioned**: \`${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ needs.test.outputs.version }}\` (linux/amd64, linux/arm64)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Web Latest**: \`${{ secrets.DOCKER_USERNAME }}/taskflow-web:latest\` (linux/amd64, linux/arm64)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Web Versioned**: \`${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ needs.test.outputs.version }}\` (linux/amd64, linux/arm64)" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Build Details" >> $GITHUB_STEP_SUMMARY
         echo "- **AMD64**: Built natively on ubuntu-latest" >> $GITHUB_STEP_SUMMARY
         echo "- **ARM64**: Built natively on ubuntu-24.04-arm" >> $GITHUB_STEP_SUMMARY
-        echo "- **Registry**: Only \`:latest\` tags created (clean)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Versioning**: Semantic versioning via GitVersion" >> $GITHUB_STEP_SUMMARY
