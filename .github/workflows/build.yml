@@ -257,9 +257,9 @@ jobs:
         space: Default
         release_number: ${{ needs.version.outputs.version }}
         channel: Ephemeral Environments
-        git_ref: ${{ github.head_ref }}
-        git_commit: ${{ github.event.pull_request.head.sha }}
-        package_version: ${{ needs.version.outputs.version }}
+        # git_ref: ${{ github.head_ref }}
+        # git_commit: ${{ github.event.pull_request.head.sha }}
+        # package_version: ${{ needs.version.outputs.version }}
         custom_fields: |
           PullRequestNumber: ${{ github.event.pull_request.number }}
 
