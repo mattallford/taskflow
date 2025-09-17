@@ -4,6 +4,7 @@ permissions:
   contents: read
   security-events: write  # Required for SARIF upload
   actions: read
+  id-token: write
 
 on:
   push:
@@ -233,3 +234,42 @@ jobs:
         echo "- **AMD64**: Built natively on ubuntu-latest" >> $GITHUB_STEP_SUMMARY
         echo "- **ARM64**: Built natively on ubuntu-24.04-arm" >> $GITHUB_STEP_SUMMARY
         echo "- **Versioning**: Semantic versioning via GitVersion" >> $GITHUB_STEP_SUMMARY
+
+  deploy:
+    name: Deploy to Octopus
+    needs: [version, manifest]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || (github.ref == 'refs/heads/main' && github.event_name == 'push')
+    
+    steps:
+    - name: Login to Octopus Deploy
+      uses: OctopusDeploy/login@v1
+      with:
+        server: ${{ secrets.OCTOPUS_SERVER_URL }}
+        service_account_id: ${{ secrets.OCTOPUS_SERVICE_ACCOUNT_ID }}
+
+    - name: Create test environment release
+      if: github.event_name == 'pull_request'
+      uses: OctopusDeploy/create-release-action@v3
+      with:
+        project: TaskFlow
+        space: Default
+        release_number: ${{ needs.version.outputs.version }}
+        channel: Ephemeral Environments
+        git_ref: ${{ github.head_ref }}
+        git_commit: ${{ github.event.pull_request.head.sha }}
+        package_version: ${{ needs.version.outputs.version }}
+        custom_fields: |
+          PullRequestNumber: ${{ github.event.pull_request.number }}
+
+    # - name: Create production release
+    #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    #   uses: OctopusDeploy/create-release-action@v3
+    #   with:
+    #     project: TaskFlow
+    #     space: Default
+    #     release_number: ${{ needs.version.outputs.version }}
+    #     channel: Production
+    #     git_ref: ${{ github.ref }}
+    #     git_commit: ${{ github.sha }}
+    #     package_version: ${{ needs.version.outputs.version }}
