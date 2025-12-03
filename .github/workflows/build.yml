@@ -31,12 +31,12 @@ jobs:
     name: Calculate Version
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.gitversion.outputs.semVer }}
+      version: ${{ steps.custom_version.outputs.version }}
       fullSemVer: ${{ steps.gitversion.outputs.fullSemVer }}
       major: ${{ steps.gitversion.outputs.major }}
       minor: ${{ steps.gitversion.outputs.minor }}
       patch: ${{ steps.gitversion.outputs.patch }}
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -51,6 +51,13 @@ jobs:
     - name: Determine Version
       id: gitversion
       uses: gittools/actions/gitversion/execute@v1.1.1
+
+    - name: Create Clean Version
+      id: custom_version
+      run: |
+        VERSION="${{ steps.gitversion.outputs.major }}.${{ steps.gitversion.outputs.minor }}.${{ steps.gitversion.outputs.commitsSinceVersionSource }}"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Clean version: $VERSION"
 
   security-scan:
     name: Security Scan
