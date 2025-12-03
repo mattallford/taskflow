@@ -1,7 +1,7 @@
-mode: ContinuousDeployment
+mode: ContinuousDelivery
 branches:
   main:
-    mode: ContinuousDeployment
+    mode: ContinuousDelivery
     increment: Patch
     prevent-increment-of-merged-branch-version: false
     track-merge-target: false
