@@ -26,4 +26,3 @@ legacy-semver-padding: 4
 build-metadata-padding: 4
 commits-since-version-source-padding: 4
 tag-prefix: 'v'
-continuous-delivery-fallback-tag: 'ci'
