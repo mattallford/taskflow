@@ -1,0 +1,4 @@
+name: Container Build and Push
+
+on:
+  workflow_dispatch:
