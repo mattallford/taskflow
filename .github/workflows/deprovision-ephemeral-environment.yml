@@ -22,6 +22,6 @@ jobs:
       - name: 🐙 Deprovision Ephemeral Environment
         uses: OctopusDeploy/deprovision-ephemeral-environment@v1.0.0
         with:
-          name: pr${{ github.event.pull_request.number }}
+          name: pr-${{ github.event.pull_request.number }}
           space: Default
           all_projects: true
