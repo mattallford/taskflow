@@ -16,6 +16,7 @@ vrv
 # Deploy to dev environment
 kubectl apply -k deploy/k8s/overlays/dev
 
+
 # Deploy to test environment  
 kubectl apply -k deploy/k8s/overlays/test
 ```
