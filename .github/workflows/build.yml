@@ -275,6 +275,4 @@ jobs:
         space: Default
         release_number: ${{ needs.version.outputs.version }}
         channel: Production
-        git_ref: ${{ github.ref }}
-        git_commit: ${{ github.sha }}
         package_version: ${{ needs.version.outputs.version }}
