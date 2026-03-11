@@ -274,5 +274,5 @@ jobs:
         project: TaskFlow
         space: Default
         release_number: ${{ needs.version.outputs.version }}
-        channel: Production
+        channel: Default
         package_version: ${{ needs.version.outputs.version }}
