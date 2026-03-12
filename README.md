@@ -4,6 +4,7 @@ A simple task management application built with .NET 9, React, and PostgreSQL. C
 vrv
 ## Tech Stack
 
+
 - **Backend**: .NET 9 Web API, Entity Framework Core, PostgreSQL
 - **Frontend**: React 18, TypeScript
 - **Infrastructure**: Docker, Kubernetes, GitHub Actions
