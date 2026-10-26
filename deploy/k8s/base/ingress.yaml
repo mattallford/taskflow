@@ -3,12 +3,10 @@ kind: Ingress
 metadata:
   name: taskflow-ingress
   namespace: taskflow
-  annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
 spec:
-  ingressClassName: nginx
+  ingressClassName: traefik
   rules:
-  - host: taskflow.local
+  - host: taskflow.localhost
     http:
       paths:
       - path: /api

@@ -12,7 +12,7 @@ Configure Octopus Deploy to target: `deploy/k8s/*.yaml`
 
 All manifests are hard-coded for the development environment:
 - **Namespace**: `taskflow-dev`
-- **Hostname**: `taskflow-dev.local`
+- **Hostname**: `taskflow-dev.localhost`
 - **Database**: `taskflowdb-dev`
 - **Image Tags**: `latest`
 - **Resource Limits**: Development-appropriate sizes
@@ -32,15 +32,15 @@ All manifests are hard-coded for the development environment:
 - `postgres.yaml` - PostgreSQL database deployment
 - `api.yaml` - TaskFlow API deployment
 - `frontend.yaml` - TaskFlow Web frontend deployment
-- `ingress.yaml` - Nginx ingress routing
+- `ingress.yaml` - Traefik ingress routing
 
 ## Access URLs
 
 After deployment:
-- **Frontend**: http://taskflow-dev.local
-- **API**: http://taskflow-dev.local/api
-- **Health**: http://taskflow-dev.local/health
-- **Swagger**: http://taskflow-dev.local/swagger
+- **Frontend**: http://taskflow-dev.localhost
+- **API**: http://taskflow-dev.localhost/api
+- **Health**: http://taskflow-dev.localhost/health
+- **Swagger**: http://taskflow-dev.localhost/swagger
 
 ## Resource Allocation
 

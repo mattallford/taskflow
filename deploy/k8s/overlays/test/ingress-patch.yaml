@@ -4,7 +4,7 @@ metadata:
   name: taskflow-ingress
 spec:
   rules:
-  - host: taskflow-test.local
+  - host: taskflow-test.localhost
     http:
       paths:
       - path: /api

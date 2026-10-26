@@ -22,9 +22,9 @@ kubectl apply -k deploy/k8s/overlays/test
 ```
 
 Access the application:
-- **Web App**: http://taskflow-dev.local or http://taskflow-test.local
-- **API**: http://taskflow-dev.local/api
-- **Health Check**: http://taskflow-dev.local/health
+- **Web App**: http://taskflow-dev.localhost or http://taskflow-test.localhost
+- **API**: http://taskflow-dev.localhost/api
+- **Health Check**: http://taskflow-dev.localhost/health
 
 ### Local Development
 
