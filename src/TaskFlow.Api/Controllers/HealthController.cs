@@ -22,8 +22,12 @@ public class HealthController : ControllerBase
     {
         try
         {
-            await _context.Database.CanConnectAsync();
-            
+            // CanConnectAsync returns false rather than throwing when the database is unreachable
+            if (!await _context.Database.CanConnectAsync())
+            {
+                throw new InvalidOperationException("Cannot connect to the database");
+            }
+
             var healthCheck = new
             {
                 Status = "Healthy",
@@ -48,5 +52,12 @@ public class HealthController : ControllerBase
 
             return StatusCode(503, healthCheck);
         }
+    }
+
+    // Liveness check: the process is up and serving requests, whatever the state of the database
+    [HttpGet("live")]
+    public IActionResult Live()
+    {
+        return Ok(new { Status = "Alive", Timestamp = DateTime.UtcNow });
     }
 }
