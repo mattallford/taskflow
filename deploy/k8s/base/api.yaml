@@ -5,6 +5,12 @@ metadata:
   namespace: taskflow
 spec:
   replicas: 1
+  # Start the new pod and wait until it's ready before removing the old one
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: taskflow-api
@@ -42,15 +48,29 @@ spec:
             secretKeyRef:
               name: taskflow-secrets
               key: connection-string
-        livenessProbe:
+        # The API waits up to ~60s for PostgreSQL before it starts listening
+        startupProbe:
           httpGet:
             path: /health
             port: 8080
-          initialDelaySeconds: 30
-          periodSeconds: 30
+          periodSeconds: 5
+          failureThreshold: 24
+        # Take the pod out of the Service while it can't reach the database
         readinessProbe:
           httpGet:
             path: /health
             port: 8080
-          initialDelaySeconds: 10
+          periodSeconds: 5
+          failureThreshold: 2
+        # Only restart the container if the process stops responding, not when the database is down
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 8080
           periodSeconds: 15
+          failureThreshold: 3
+        lifecycle:
+          # Keep serving while Traefik removes the pod from its endpoints, so rollouts don't drop requests
+          preStop:
+            sleep:
+              seconds: 10

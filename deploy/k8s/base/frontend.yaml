@@ -5,6 +5,12 @@ metadata:
   namespace: taskflow
 spec:
   replicas: 1
+  # Start the new pod and wait until it's ready before removing the old one
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: taskflow-frontend
@@ -36,5 +42,9 @@ spec:
           httpGet:
             path: /
             port: 3000
-          initialDelaySeconds: 5
-          periodSeconds: 10
+          periodSeconds: 5
+        lifecycle:
+          # Keep serving while Traefik removes the pod from its endpoints, so rollouts don't drop requests
+          preStop:
+            sleep:
+              seconds: 10
