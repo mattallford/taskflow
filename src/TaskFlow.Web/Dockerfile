@@ -19,6 +19,10 @@ COPY src/ src/
 COPY public/ public/
 COPY tsconfig.json .
 
+# Version shown in the footer, set by CI
+ARG APP_VERSION=dev
+ENV REACT_APP_VERSION=$APP_VERSION
+
 # Build the React application for production
 RUN npm run build
 

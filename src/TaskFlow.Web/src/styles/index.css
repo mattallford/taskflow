@@ -50,6 +50,14 @@ body {
   width: 100%;
 }
 
+/* Footer */
+.footer {
+  text-align: center;
+  padding: 1rem;
+  font-size: 0.85rem;
+  color: #888;
+}
+
 /* Task filters */
 .task-filters {
   display: flex;

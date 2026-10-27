@@ -161,6 +161,10 @@ function App() {
           />
         )}
       </main>
+
+      <footer className="footer">
+        TaskFlow {process.env.REACT_APP_VERSION || 'dev'}
+      </footer>
     </div>
   );
 }

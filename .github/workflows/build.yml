@@ -183,6 +183,8 @@ jobs:
           org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           org.opencontainers.image.revision=${{ github.sha }}
           org.opencontainers.image.version=${{ needs.version.outputs.version }}
+        build-args: |
+          APP_VERSION=${{ needs.version.outputs.version }}
         outputs: type=image,name=${{ secrets.DOCKER_USERNAME }}/taskflow-api,push-by-digest=true,name-canonical=true,push=${{ env.PUBLISH }}
         cache-from: type=gha,scope=api-${{ matrix.arch }}
         cache-to: type=gha,mode=max,scope=api-${{ matrix.arch }}
@@ -198,6 +200,8 @@ jobs:
           org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           org.opencontainers.image.revision=${{ github.sha }}
           org.opencontainers.image.version=${{ needs.version.outputs.version }}
+        build-args: |
+          APP_VERSION=${{ needs.version.outputs.version }}
         outputs: type=image,name=${{ secrets.DOCKER_USERNAME }}/taskflow-web,push-by-digest=true,name-canonical=true,push=${{ env.PUBLISH }}
         cache-from: type=gha,scope=web-${{ matrix.arch }}
         cache-to: type=gha,mode=max,scope=web-${{ matrix.arch }}
@@ -305,6 +309,19 @@ jobs:
       with:
         server: ${{ secrets.OCTOPUS_SERVER_URL }}
         service_account_id: ${{ secrets.OCTOPUS_SERVICE_ACCOUNT_ID }}
+
+    # Links the commits, branch and build to both image versions, so Octopus can show
+    # what changed in each release. Commits are only included for push events.
+    - name: Push build information to Octopus
+      uses: OctopusDeploy/push-build-information-action@v4
+      with:
+        space: Default
+        packages: |
+          ${{ secrets.DOCKER_USERNAME }}/taskflow-api
+          ${{ secrets.DOCKER_USERNAME }}/taskflow-web
+        version: ${{ needs.version.outputs.version }}
+        branch: ${{ github.head_ref || github.ref_name }}
+        overwrite_mode: OverwriteExisting
 
     - name: Create test environment release
       if: github.event_name == 'pull_request'
