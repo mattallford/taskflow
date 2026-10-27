@@ -129,10 +129,12 @@ static async Task InitializeDatabaseAsync(IServiceProvider services, bool useInM
         {
             try
             {
-                Log.Information("Attempting to connect to database (attempt {Attempt}/{MaxRetries})", 
+                Log.Information("Attempting to connect to database (attempt {Attempt}/{MaxRetries})",
                     retryCount + 1, maxRetries);
-                
-                await context.Database.CanConnectAsync();
+
+                // CanConnectAsync returns false rather than throwing when PostgreSQL isn't up yet,
+                // so use EnsureCreatedAsync, which throws, to drive the retry
+                await context.Database.EnsureCreatedAsync();
                 Log.Information("Database connection successful");
                 break;
             }
@@ -152,9 +154,11 @@ static async Task InitializeDatabaseAsync(IServiceProvider services, bool useInM
             }
         }
     }
-    
-    // Ensure database is created and seed data
-    await context.Database.EnsureCreatedAsync();
+    else
+    {
+        await context.Database.EnsureCreatedAsync();
+    }
+
     await DbSeeder.SeedAsync(context);
     Log.Information("Database initialized and seeded successfully");
 }
