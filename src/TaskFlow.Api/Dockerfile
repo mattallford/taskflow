@@ -58,6 +58,10 @@ ENV ASPNETCORE_ENVIRONMENT=Production
 ENV DOTNET_RUNNING_IN_CONTAINER=true
 ENV DOTNET_EnableDiagnostics=0
 
+# Version reported by /health, set by CI
+ARG APP_VERSION=dev
+ENV APP_VERSION=$APP_VERSION
+
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:8080/health || exit 1

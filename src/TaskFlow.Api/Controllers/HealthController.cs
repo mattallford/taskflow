@@ -10,6 +10,7 @@ public class HealthController : ControllerBase
 {
     private readonly TaskDbContext _context;
     private readonly ILogger<HealthController> _logger;
+    private static readonly string AppVersion = Environment.GetEnvironmentVariable("APP_VERSION") ?? "dev";
 
     public HealthController(TaskDbContext context, ILogger<HealthController> logger)
     {
@@ -31,6 +32,7 @@ public class HealthController : ControllerBase
             var healthCheck = new
             {
                 Status = "Healthy",
+                Version = AppVersion,
                 Timestamp = DateTime.UtcNow,
                 Database = "Connected"
             };
@@ -45,6 +47,7 @@ public class HealthController : ControllerBase
             var healthCheck = new
             {
                 Status = "Unhealthy",
+                Version = AppVersion,
                 Timestamp = DateTime.UtcNow,
                 Database = "Disconnected",
                 Error = ex.Message
@@ -58,6 +61,6 @@ public class HealthController : ControllerBase
     [HttpGet("live")]
     public IActionResult Live()
     {
-        return Ok(new { Status = "Alive", Timestamp = DateTime.UtcNow });
+        return Ok(new { Status = "Alive", Version = AppVersion, Timestamp = DateTime.UtcNow });
     }
 }
