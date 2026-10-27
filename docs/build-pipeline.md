@@ -127,9 +127,18 @@ DOCKER_PASSWORD: Docker Hub access token
 ### Image Tagging Strategy
 
 **Tags Generated:**
-- `[major].[minor].[commits]` (pushes to main, e.g. `1.1.40`)
-- `[major].[minor].[commits]-pr[number].[run]` (pull requests, e.g. `1.1.40-pr14.3`)
+- `[major].[minor].[patch]` (pushes to main, e.g. `1.1.42`): the next patch after the
+  latest `v*` Git tag. Each main build creates a GitHub release and tag (`v1.1.42`) so
+  the next build moves on to `1.1.43`.
+- `[major].[minor].[patch]-pr[number].[commits]` (pull requests, e.g. `1.1.43-pr16.3`):
+  a pre-release of the next patch, numbered by commits since the latest tag.
 - `latest` (pushes to main only)
+
+Each architecture is pushed by digest and combined into one multi-arch tag, so there are
+no per-architecture tags.
+
+To bump the minor or major version, include `+semver: minor` or `+semver: major` in a
+commit message.
 
 The pre-release tag is what keeps branch builds out of Production: the Octopus
 Release channel only accepts versions without one, and the Ephemeral
@@ -137,8 +146,8 @@ Environments channel only accepts versions with one.
 
 **Example:**
 ```
-taskflow-api:1.1.40
-taskflow-api:1.1.40-pr14.3
+taskflow-api:1.1.42
+taskflow-api:1.1.43-pr16.3
 taskflow-api:latest
 ```
 
