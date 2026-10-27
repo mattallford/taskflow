@@ -9,7 +9,7 @@ This document describes the containerized build pipeline for TaskFlow, including
 ```
 TaskFlow Build Pipeline
 ├── API Container (taskflow-api)
-│   ├── Multi-stage .NET 9.0 build
+│   ├── Multi-stage .NET 10 build
 │   ├── Security hardening
 │   └── Health checks
 ├── Web Container (taskflow-web)  
@@ -28,8 +28,8 @@ TaskFlow Build Pipeline
 ### API Container (`taskflow-api`)
 
 **Base Images:**
-- Build: `mcr.microsoft.com/dotnet/sdk:9.0`
-- Runtime: `mcr.microsoft.com/dotnet/aspnet:9.0`
+- Build: `mcr.microsoft.com/dotnet/sdk:10.0`
+- Runtime: `mcr.microsoft.com/dotnet/aspnet:10.0`
 
 **Features:**
 - Multi-stage build for optimized image size
@@ -98,7 +98,7 @@ src/
 
 **Steps:**
 1. **Testing Phase**
-   - .NET 9.0 setup and dependency restoration
+   - .NET 10 setup and dependency restoration
    - .NET solution build and unit tests
    - Node.js 20 setup and React frontend tests
 
