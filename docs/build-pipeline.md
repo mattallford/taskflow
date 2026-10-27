@@ -13,7 +13,7 @@ TaskFlow Build Pipeline
 │   ├── Security hardening
 │   └── Health checks
 ├── Web Container (taskflow-web)  
-│   ├── Multi-stage React build
+│   ├── Multi-stage React build (Vite)
 │   ├── Nginx production server
 │   └── Static asset optimization
 └── CI/CD Pipeline
@@ -44,8 +44,8 @@ TaskFlow Build Pipeline
 ### Web Container (`taskflow-web`)
 
 **Base Images:**
-- Build: `node:20-alpine`
-- Runtime: `nginx:1.25-alpine`
+- Build: `node:24-alpine` (Vite)
+- Runtime: `nginx:1.30-alpine`
 
 **Features:**
 - Multi-stage build separating build and runtime
@@ -100,7 +100,7 @@ src/
 1. **Testing Phase**
    - .NET 9.0 setup and dependency restoration
    - .NET solution build and unit tests
-   - Node.js 20 setup and React frontend tests
+   - Node.js 24 setup and React frontend tests (Vitest)
 
 2. **Container Build Phase**
    - Docker Buildx setup with caching
