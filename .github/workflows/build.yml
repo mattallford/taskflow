@@ -11,6 +11,7 @@ on:
     branches: [ main, 'feature/**', 'hotfix/**' ]
     paths:
       - '.github/workflows/build.yml'
+      - 'GitVersion.yml'
       - 'deploy/k8s/**'
       - 'src/**'
       - 'README.md'
@@ -18,10 +19,16 @@ on:
     branches: [ main ]
     paths:
       - '.github/workflows/build.yml'
+      - 'GitVersion.yml'
       - 'deploy/k8s/**'
       - 'src/**'
       - 'README.md'
   workflow_dispatch:
+
+# Main builds run one at a time so each one sees the previous build's version tag
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
   REGISTRY: docker.io
@@ -32,10 +39,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.custom_version.outputs.version }}
-      fullSemVer: ${{ steps.gitversion.outputs.fullSemVer }}
-      major: ${{ steps.gitversion.outputs.major }}
-      minor: ${{ steps.gitversion.outputs.minor }}
-      patch: ${{ steps.gitversion.outputs.patch }}
 
     steps:
     - name: Checkout code
@@ -44,23 +47,31 @@ jobs:
         fetch-depth: 0  # Required for GitVersion
 
     - name: Install GitVersion
-      uses: gittools/actions/gitversion/setup@v1.1.1
+      uses: gittools/actions/gitversion/setup@v4.7.0
       with:
-        versionSpec: '5.x'
+        versionSpec: '6.8.x'
 
     - name: Determine Version
       id: gitversion
-      uses: gittools/actions/gitversion/execute@v1.1.1
+      uses: gittools/actions/gitversion/execute@v4.7.0
 
     - name: Create Clean Version
       id: custom_version
       run: |
-        VERSION="${{ steps.gitversion.outputs.major }}.${{ steps.gitversion.outputs.minor }}.${{ steps.gitversion.outputs.commitsSinceVersionSource }}"
-        # Branch builds get a pre-release tag so Octopus channel rules keep them out of Production
+        # main:  1.1.42 (the next patch after the latest v* tag; each main build tags itself)
+        # PR:    1.1.42-pr16.3 (pre-release of the next patch, numbered by commits since that tag)
+        # other: 1.1.42-feature-x.3 (built but never published)
+        # The pre-release tag is what Octopus channel rules use to keep branch builds out of Production
+        BASE="${{ steps.gitversion.outputs.majorMinorPatch }}"
+        DISTANCE="${{ steps.gitversion.outputs.versionSourceDistance }}"
         if [ "${{ github.event_name }}" = "pull_request" ]; then
-          VERSION="$VERSION-pr${{ github.event.pull_request.number }}.${{ github.run_number }}"
+          VERSION="$BASE-pr${{ github.event.pull_request.number }}.$DISTANCE"
+        elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
+          VERSION="$BASE"
+        else
+          VERSION="$BASE-${{ steps.gitversion.outputs.escapedBranchName }}.$DISTANCE"
         fi
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
         echo "Clean version: $VERSION"
 
   security-scan:
@@ -125,11 +136,12 @@ jobs:
       env:
         CI: true
 
+
   build:
     name: Build ${{ matrix.platform }}
-    needs: [version, test]  # Need version for tags, test must pass before building
+    needs: [version, test]  # Need version for labels, test must pass before building
     runs-on: ${{ matrix.runner }}
-    
+
     strategy:
       matrix:
         include:
@@ -139,123 +151,155 @@ jobs:
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
             arch: arm64
-    
+
+    env:
+      PUBLISH: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/main' }}
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-      
+      uses: docker/setup-buildx-action@v4
+
     - name: Log in to Docker Hub
-      if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
-      uses: docker/login-action@v3
+      if: env.PUBLISH == 'true'
+      uses: docker/login-action@v4
       with:
         registry: ${{ env.REGISTRY }}
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    # Build and Push API Container
-    - name: Build and push API image (${{ matrix.arch }})
-      uses: docker/build-push-action@v5
+    # Each architecture is pushed by digest only (no tag). The manifest job then
+    # tags a single multi-arch image, so there are no -amd64/-arm64 tags.
+    - name: Build and push API image by digest (${{ matrix.arch }})
+      id: build_api
+      uses: docker/build-push-action@v7
       with:
         context: .
         file: ./src/TaskFlow.Api/Dockerfile
         platforms: ${{ matrix.platform }}
-        push: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/main' }}
-        tags: |
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ needs.version.outputs.version }}-${{ matrix.arch }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+        labels: |
+          org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          org.opencontainers.image.revision=${{ github.sha }}
+          org.opencontainers.image.version=${{ needs.version.outputs.version }}
+        outputs: type=image,name=${{ secrets.DOCKER_USERNAME }}/taskflow-api,push-by-digest=true,name-canonical=true,push=${{ env.PUBLISH }}
+        cache-from: type=gha,scope=api-${{ matrix.arch }}
+        cache-to: type=gha,mode=max,scope=api-${{ matrix.arch }}
 
-    # Build and Push Web Container  
-    - name: Build and push Web image (${{ matrix.arch }})
-      uses: docker/build-push-action@v5
+    - name: Build and push Web image by digest (${{ matrix.arch }})
+      id: build_web
+      uses: docker/build-push-action@v7
       with:
         context: ./src/TaskFlow.Web
         file: ./src/TaskFlow.Web/Dockerfile
         platforms: ${{ matrix.platform }}
-        push: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/main' }}
-        tags: |
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ needs.version.outputs.version }}-${{ matrix.arch }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+        labels: |
+          org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          org.opencontainers.image.revision=${{ github.sha }}
+          org.opencontainers.image.version=${{ needs.version.outputs.version }}
+        outputs: type=image,name=${{ secrets.DOCKER_USERNAME }}/taskflow-web,push-by-digest=true,name-canonical=true,push=${{ env.PUBLISH }}
+        cache-from: type=gha,scope=web-${{ matrix.arch }}
+        cache-to: type=gha,mode=max,scope=web-${{ matrix.arch }}
+
+    - name: Export digests
+      if: env.PUBLISH == 'true'
+      run: |
+        mkdir -p digests/api digests/web
+        API_DIGEST="${{ steps.build_api.outputs.digest }}"
+        WEB_DIGEST="${{ steps.build_web.outputs.digest }}"
+        touch "digests/api/${API_DIGEST#sha256:}" "digests/web/${WEB_DIGEST#sha256:}"
+
+    - name: Upload digests
+      if: env.PUBLISH == 'true'
+      uses: actions/upload-artifact@v7
+      with:
+        name: digests-${{ matrix.arch }}
+        path: digests/
+        if-no-files-found: error
+        retention-days: 1
 
   manifest:
     name: Create Multi-Arch Manifests
     needs: [version, build]
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
-    
+
     steps:
+    - name: Download digests
+      uses: actions/download-artifact@v8
+      with:
+        pattern: digests-*
+        merge-multiple: true
+        path: digests
+
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-      
+      uses: docker/setup-buildx-action@v4
+
     - name: Log in to Docker Hub
-      if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         registry: ${{ env.REGISTRY }}
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    # Create multi-arch manifest for API
-    - name: Create API manifest list
+    # Tag one multi-arch image per app from the per-architecture digests.
+    # latest is only moved by main builds, so branch builds never become latest.
+    - name: Create multi-arch manifests
       run: |
-        # Create versioned tag manifest
-        docker buildx imagetools create -t ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ needs.version.outputs.version }} \
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ needs.version.outputs.version }}-amd64 \
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ needs.version.outputs.version }}-arm64
-        
-        # Create latest tag manifest (main only, so branch builds never become latest)
-        if [ "${{ github.ref }}" != "refs/heads/main" ]; then exit 0; fi
-        docker buildx imagetools create -t ${{ secrets.DOCKER_USERNAME }}/taskflow-api:latest \
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ needs.version.outputs.version }}-amd64 \
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ needs.version.outputs.version }}-arm64
+        for APP in api web; do
+          IMAGE="${{ secrets.DOCKER_USERNAME }}/taskflow-$APP"
+          TAGS="-t $IMAGE:${{ needs.version.outputs.version }}"
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            TAGS="$TAGS -t $IMAGE:latest"
+          fi
+          # shellcheck disable=SC2086,SC2046 # TAGS and the digest list are meant to split into arguments
+          docker buildx imagetools create $TAGS $(cd digests/$APP && printf "$IMAGE@sha256:%s " *)
+          docker buildx imagetools inspect "$IMAGE:${{ needs.version.outputs.version }}"
+        done
 
-    # Create multi-arch manifest for Web
-    - name: Create Web manifest list
-      run: |
-        # Create versioned tag manifest
-        docker buildx imagetools create -t ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ needs.version.outputs.version }} \
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ needs.version.outputs.version }}-amd64 \
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ needs.version.outputs.version }}-arm64
-        
-        # Create latest tag manifest (main only, so branch builds never become latest)
-        if [ "${{ github.ref }}" != "refs/heads/main" ]; then exit 0; fi
-        docker buildx imagetools create -t ${{ secrets.DOCKER_USERNAME }}/taskflow-web:latest \
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ needs.version.outputs.version }}-amd64 \
-          ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ needs.version.outputs.version }}-arm64
-
-    # Note: Build-specific tags remain for debugging/rollback if needed
-
-    # Summary
     - name: Build summary
       run: |
-        echo "## Multi-Arch Build Complete ✅" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Version Information" >> $GITHUB_STEP_SUMMARY
-        echo "- **Semantic Version**: \`${{ needs.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
-        echo "- **Full Version**: \`${{ needs.version.outputs.fullSemVer }}\`" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Container Images (Multi-Architecture)" >> $GITHUB_STEP_SUMMARY
-        echo "- **API Latest**: \`${{ secrets.DOCKER_USERNAME }}/taskflow-api:latest\` (linux/amd64, linux/arm64)" >> $GITHUB_STEP_SUMMARY
-        echo "- **API Versioned**: \`${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ needs.version.outputs.version }}\` (linux/amd64, linux/arm64)" >> $GITHUB_STEP_SUMMARY
-        echo "- **Web Latest**: \`${{ secrets.DOCKER_USERNAME }}/taskflow-web:latest\` (linux/amd64, linux/arm64)" >> $GITHUB_STEP_SUMMARY
-        echo "- **Web Versioned**: \`${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ needs.version.outputs.version }}\` (linux/amd64, linux/arm64)" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Build Details" >> $GITHUB_STEP_SUMMARY
-        echo "- **AMD64**: Built natively on ubuntu-latest" >> $GITHUB_STEP_SUMMARY
-        echo "- **ARM64**: Built natively on ubuntu-24.04-arm" >> $GITHUB_STEP_SUMMARY
-        echo "- **Versioning**: Semantic versioning via GitVersion" >> $GITHUB_STEP_SUMMARY
+        VERSION="${{ needs.version.outputs.version }}"
+        {
+          echo "## Multi-Arch Build Complete ✅"
+          echo ""
+          echo "- **Version**: \`$VERSION\`"
+          echo "- **API**: \`taskflow-api:$VERSION\` (linux/amd64, linux/arm64)"
+          echo "- **Web**: \`taskflow-web:$VERSION\` (linux/amd64, linux/arm64)"
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "- **latest**: updated to \`$VERSION\`"
+          else
+            echo "- **latest**: not updated (branch build)"
+          fi
+          echo ""
+          echo "AMD64 built natively on ubuntu-latest, ARM64 natively on ubuntu-24.04-arm."
+        } >> "$GITHUB_STEP_SUMMARY"
 
   deploy:
     name: Deploy to Octopus
     needs: [version, manifest]
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' || (github.ref == 'refs/heads/main' && github.event_name == 'push')
-    
+    permissions:
+      contents: write  # Create the GitHub release and version tag
+      id-token: write  # OIDC login to Octopus
+
     steps:
+    # GitVersion calculates the next main version from the latest tag, so every
+    # main build must tag itself. Re-runs of the same build reuse the existing release.
+    - name: Create GitHub release and tag
+      if: github.ref == 'refs/heads/main'
+      env:
+        GH_TOKEN: ${{ github.token }}
+        TAG: v${{ needs.version.outputs.version }}
+      run: |
+        if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+          echo "Release $TAG already exists"
+        else
+          gh release create "$TAG" --repo "${{ github.repository }}" --target "${{ github.sha }}" --title "$TAG" --generate-notes
+        fi
+
     - name: Login to Octopus Deploy
       uses: OctopusDeploy/login@v1
       with:

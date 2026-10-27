@@ -1,29 +1,7 @@
-mode: ContinuousDeployment
+workflow: GitHubFlow/v1
+# Every main build is tagged (e.g. v1.1.42) by CI, so the next build increments the patch from that tag
+tag-prefix: '[vV]?'
 branches:
   main:
-    mode: ContinuousDeployment
-    tag: ''
+    label: ''
     increment: Patch
-    prevent-increment-of-merged-branch-version: false
-    track-merge-target: false
-  feature:
-    mode: ContinuousDeployment
-    tag: 'feature'
-    increment: Inherit
-    source-branches:
-    - main
-  hotfix:
-    mode: ContinuousDeployment
-    tag: 'hotfix'
-    increment: Patch
-    source-branches:
-    - main
-ignore:
-  sha: []
-major-version-bump-message: '\+semver:\s?(breaking|major)'
-minor-version-bump-message: '\+semver:\s?(feature|minor)'
-patch-version-bump-message: '\+semver:\s?(fix|patch)'
-legacy-semver-padding: 4
-build-metadata-padding: 4
-commits-since-version-source-padding: 4
-tag-prefix: 'v'
