@@ -2,7 +2,7 @@
 # Multi-stage build for production-ready React application
 
 # Build stage
-FROM node:20-alpine AS build
+FROM node:24-alpine AS build
 
 # Set working directory
 WORKDIR /app
@@ -10,24 +10,23 @@ WORKDIR /app
 # Copy package files for dependency installation
 COPY package*.json ./
 
-# Install dependencies (using npm ci for faster, reliable builds)
-RUN npm ci --only=production --silent && \
+# Install dependencies, including the Vite and TypeScript build tools
+RUN npm ci --silent && \
     npm cache clean --force
 
 # Copy source code
 COPY src/ src/
-COPY public/ public/
-COPY tsconfig.json .
+COPY index.html tsconfig.json vite.config.ts ./
 
 # Version shown in the footer, set by CI
 ARG APP_VERSION=dev
-ENV REACT_APP_VERSION=$APP_VERSION
+ENV VITE_APP_VERSION=$APP_VERSION
 
 # Build the React application for production
 RUN npm run build
 
 # Production stage - Nginx for serving static files
-FROM nginx:1.25-alpine AS production
+FROM nginx:1.30-alpine AS production
 
 # Install wget for health checks
 RUN apk add --no-cache wget
