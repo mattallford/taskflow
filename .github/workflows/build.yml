@@ -264,7 +264,7 @@ jobs:
 
     - name: Create test environment release
       if: github.event_name == 'pull_request'
-      uses: OctopusDeploy/create-release-action@v3
+      uses: OctopusDeploy/create-release-action@v4
       with:
         project: TaskFlow
         space: Default
@@ -279,7 +279,7 @@ jobs:
 
     - name: Create production release
       if: github.ref == 'refs/heads/main'
-      uses: OctopusDeploy/create-release-action@v3
+      uses: OctopusDeploy/create-release-action@v4
       with:
         project: TaskFlow
         space: Default
