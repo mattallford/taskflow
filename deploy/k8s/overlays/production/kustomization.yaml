@@ -11,9 +11,9 @@ namespace: taskflow-production
 
 images:
 - name: mattallford/taskflow-api
-  newTag: latest
+  newTag: "#{Octopus.Action.Package[taskflow-api].PackageVersion}"
 - name: mattallford/taskflow-web
-  newTag: latest
+  newTag: "#{Octopus.Action.Package[taskflow-web].PackageVersion}"
 
 patches:
 - path: configmap-patch.yaml

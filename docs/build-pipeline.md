@@ -127,15 +127,19 @@ DOCKER_PASSWORD: Docker Hub access token
 ### Image Tagging Strategy
 
 **Tags Generated:**
-- `latest` (all pushes to main/develop)
-- `[commit-sha]` (specific commit identifier)
+- `[major].[minor].[commits]` (pushes to main, e.g. `1.1.40`)
+- `[major].[minor].[commits]-pr[number].[run]` (pull requests, e.g. `1.1.40-pr14.3`)
+- `latest` (pushes to main only)
+
+The pre-release tag is what keeps branch builds out of Production: the Octopus
+Release channel only accepts versions without one, and the Ephemeral
+Environments channel only accepts versions with one.
 
 **Example:**
 ```
+taskflow-api:1.1.40
+taskflow-api:1.1.40-pr14.3
 taskflow-api:latest
-taskflow-api:abc1234567890abcdef1234567890abcdef1234
-taskflow-web:latest
-taskflow-web:abc1234567890abcdef1234567890abcdef1234
 ```
 
 ## Local Development

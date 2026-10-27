@@ -56,6 +56,10 @@ jobs:
       id: custom_version
       run: |
         VERSION="${{ steps.gitversion.outputs.major }}.${{ steps.gitversion.outputs.minor }}.${{ steps.gitversion.outputs.commitsSinceVersionSource }}"
+        # Branch builds get a pre-release tag so Octopus channel rules keep them out of Production
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          VERSION="$VERSION-pr${{ github.event.pull_request.number }}.${{ github.run_number }}"
+        fi
         echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "Clean version: $VERSION"
 
@@ -203,7 +207,8 @@ jobs:
           ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ needs.version.outputs.version }}-amd64 \
           ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ needs.version.outputs.version }}-arm64
         
-        # Create latest tag manifest
+        # Create latest tag manifest (main only, so branch builds never become latest)
+        if [ "${{ github.ref }}" != "refs/heads/main" ]; then exit 0; fi
         docker buildx imagetools create -t ${{ secrets.DOCKER_USERNAME }}/taskflow-api:latest \
           ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ needs.version.outputs.version }}-amd64 \
           ${{ secrets.DOCKER_USERNAME }}/taskflow-api:${{ needs.version.outputs.version }}-arm64
@@ -216,7 +221,8 @@ jobs:
           ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ needs.version.outputs.version }}-amd64 \
           ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ needs.version.outputs.version }}-arm64
         
-        # Create latest tag manifest
+        # Create latest tag manifest (main only, so branch builds never become latest)
+        if [ "${{ github.ref }}" != "refs/heads/main" ]; then exit 0; fi
         docker buildx imagetools create -t ${{ secrets.DOCKER_USERNAME }}/taskflow-web:latest \
           ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ needs.version.outputs.version }}-amd64 \
           ${{ secrets.DOCKER_USERNAME }}/taskflow-web:${{ needs.version.outputs.version }}-arm64
@@ -264,6 +270,10 @@ jobs:
         space: Default
         release_number: ${{ needs.version.outputs.version }}
         channel: Ephemeral Environments
+        package_version: ${{ needs.version.outputs.version }}
+        # Use the PR's manifests rather than main's
+        git_resources: |
+          Kustomize deployment:refs/heads/${{ github.head_ref }}
         custom_fields: |
           PullRequestNumber: ${{ github.event.pull_request.number }}
 
@@ -274,5 +284,5 @@ jobs:
         project: TaskFlow
         space: Default
         release_number: ${{ needs.version.outputs.version }}
-        channel: Default
+        channel: Release
         package_version: ${{ needs.version.outputs.version }}

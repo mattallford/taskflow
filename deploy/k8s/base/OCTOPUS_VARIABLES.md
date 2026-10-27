@@ -14,7 +14,7 @@ All manifests are hard-coded for the development environment:
 - **Namespace**: `taskflow-dev`
 - **Hostname**: `taskflow-dev.localhost`
 - **Database**: `taskflowdb-dev`
-- **Image Tags**: `latest`
+- **Image Tags**: set per release from the Octopus package references `taskflow-api` and `taskflow-web`
 - **Resource Limits**: Development-appropriate sizes
 
 ## Deployment Process
