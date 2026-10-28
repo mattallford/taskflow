@@ -4,3 +4,4 @@ metadata:
   name: taskflow-config
 data:
   ASPNETCORE_ENVIRONMENT: "Staging"
+  Swagger__Enabled: "#{Swagger.Enabled}"

@@ -20,7 +20,7 @@ public class TasksControllerTests : IClassFixture<WebApplicationFactory<Program>
     {
         _factory = factory.WithWebHostBuilder(builder =>
         {
-            builder.UseEnvironment("Testing");
+            builder.UseEnvironment("IntegrationTests");
             builder.ConfigureServices(services =>
             {
                 // Remove existing DbContext registration and all database providers

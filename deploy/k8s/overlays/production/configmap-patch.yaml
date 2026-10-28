@@ -4,3 +4,4 @@ metadata:
   name: taskflow-config
 data:
   ASPNETCORE_ENVIRONMENT: "Production"
+  Swagger__Enabled: "#{Swagger.Enabled}"

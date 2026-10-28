@@ -6,3 +6,5 @@ metadata:
 data:
   ASPNETCORE_ENVIRONMENT: "Production"
   ASPNETCORE_URLS: "http://+:8080"
+  # Each overlay sets this from the Octopus variable Swagger.Enabled
+  Swagger__Enabled: "false"

@@ -80,6 +80,7 @@ manifests and smoke test.
 | `Kubernetes.Namespace` | `taskflow-#{environmentName}` |
 | `OverlayPath` | `deploy/k8s/overlays/#{Octopus.Environment.Name \| ToLower}`, or `deploy/k8s/overlays/ephemeralenvironments` for ephemeral environments |
 | `AppHost` | `taskflow-#{environmentName}.localhost`, or `taskflow.localhost` in Production |
+| `Swagger.Enabled` | `true` or `false`; becomes `Swagger__Enabled` in each overlay's ConfigMap and turns Swagger UI at `/swagger` on or off |
 
 ### Ephemeral environments
 
