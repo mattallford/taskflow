@@ -24,10 +24,12 @@ AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 // Configure Entity Framework
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+// "IntegrationTests" is only used by TaskFlow.Tests, which swaps in its own in-memory database.
+// Keep it distinct from any real environment name, or that environment would skip PostgreSQL.
 var useInMemory = string.IsNullOrEmpty(connectionString) && 
-                 (builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing"));
+                 (builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("IntegrationTests"));
 
-if (useInMemory || builder.Environment.IsEnvironment("Testing"))
+if (useInMemory || builder.Environment.IsEnvironment("IntegrationTests"))
 {
     // Use in-memory database for development and testing
     Log.Information("Using in-memory database for {Environment}", builder.Environment.EnvironmentName);
@@ -75,7 +77,13 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
-if (app.Environment.IsDevelopment())
+// Swagger__Enabled is set per environment from the Octopus variable Swagger.Enabled.
+// Without it (e.g. dotnet run locally), Swagger is on in Development only.
+var swaggerEnabled = bool.TryParse(app.Configuration["Swagger:Enabled"], out var enabled)
+    ? enabled
+    : app.Environment.IsDevelopment();
+
+if (swaggerEnabled)
 {
     app.UseSwagger();
     app.UseSwaggerUI(c =>
@@ -97,7 +105,7 @@ try
     Log.Information("Starting TaskFlow API");
     
     // Ensure database is created and seeded (skip in test environment)
-    if (!app.Environment.IsEnvironment("Testing"))
+    if (!app.Environment.IsEnvironment("IntegrationTests"))
     {
         await InitializeDatabaseAsync(app.Services, useInMemory);
     }

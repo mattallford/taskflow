@@ -3,4 +3,5 @@ kind: ConfigMap
 metadata:
   name: taskflow-config
 data:
-  ASPNETCORE_ENVIRONMENT: "Testing"
+  ASPNETCORE_ENVIRONMENT: "Test"
+  Swagger__Enabled: "#{Swagger.Enabled}"

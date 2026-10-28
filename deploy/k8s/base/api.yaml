@@ -43,6 +43,11 @@ spec:
             configMapKeyRef:
               name: taskflow-config
               key: ASPNETCORE_URLS
+        - name: Swagger__Enabled
+          valueFrom:
+            configMapKeyRef:
+              name: taskflow-config
+              key: Swagger__Enabled
         - name: ConnectionStrings__DefaultConnection
           valueFrom:
             secretKeyRef:

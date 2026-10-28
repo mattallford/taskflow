@@ -58,3 +58,4 @@ cd src/TaskFlow.Web && npm test
 - `DELETE /api/tasks/{id}` - Delete a task
 - `GET /health` - Health, database status and version (503 when the database is unreachable)
 - `GET /health/live` - Liveness only; doesn't check the database
+- `/swagger` - Swagger UI, where the `Swagger.Enabled` Octopus variable turns it on
