@@ -1,0 +1,12 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: taskflow-api
+spec:
+  template:
+    metadata:
+      annotations:
+        # Different on every Octopus deployment, so the API pods always restart and pick up changed
+        # Secret and ConfigMap values, even when the same release is redeployed. Not applied to
+        # PostgreSQL, whose emptyDir storage would be wiped by a restart.
+        taskflow/octopus-deployment-id: "#{Octopus.Deployment.Id}"
