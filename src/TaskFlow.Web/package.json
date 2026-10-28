@@ -4,6 +4,9 @@
   "description": "TaskFlow Web Frontend - Modern task management interface",
   "private": true,
   "dependencies": {
+    "@octopusdeploy/openfeature": "5.0.1",
+    "@openfeature/react-sdk": "1.4.1",
+    "@openfeature/web-sdk": "1.10.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },

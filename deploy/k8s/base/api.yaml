@@ -48,6 +48,14 @@ spec:
             configMapKeyRef:
               name: taskflow-config
               key: Swagger__Enabled
+        # Each overlay's secret-patch.yaml sets this from Octopus.FeatureFlags.ClientIdentifier.
+        # Optional, so the API still starts (with code defaults) if an environment doesn't set it.
+        - name: FeatureFlags__ClientIdentifier
+          valueFrom:
+            secretKeyRef:
+              name: taskflow-secrets
+              key: feature-flags-client-identifier
+              optional: true
         - name: ConnectionStrings__DefaultConnection
           valueFrom:
             secretKeyRef:

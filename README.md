@@ -43,6 +43,14 @@ npm install
 npm run dev
 ```
 
+To use real feature flags locally, copy an environment's identifier from **Preview Client
+Identifiers** (TaskFlow ➜ Feature Flags ➜ overflow menu) and start the API with it. The web dev
+server gets it through `/api/config` too:
+
+```bash
+FeatureFlags__ClientIdentifier='<identifier>' dotnet run --urls http://localhost:8080
+```
+
 **Tests:**
 
 ```bash

@@ -28,6 +28,14 @@ patches:
   target:
     kind: Ingress
     name: taskflow-ingress
+- path: secret-patch.yaml
+  target:
+    kind: Secret
+    name: taskflow-secrets
+- path: deployment-patch.yaml
+  target:
+    kind: Deployment
+    name: taskflow-api
 
 labels:
 - pairs:
