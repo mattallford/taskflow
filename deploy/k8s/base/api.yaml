@@ -48,6 +48,11 @@ spec:
             configMapKeyRef:
               name: taskflow-config
               key: Swagger__Enabled
+        - name: FeatureFlags__ClientIdentifier
+          valueFrom:
+            configMapKeyRef:
+              name: taskflow-config
+              key: FeatureFlags__ClientIdentifier
         - name: ConnectionStrings__DefaultConnection
           valueFrom:
             secretKeyRef:

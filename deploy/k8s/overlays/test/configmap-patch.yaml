@@ -5,3 +5,4 @@ metadata:
 data:
   ASPNETCORE_ENVIRONMENT: "Test"
   Swagger__Enabled: "#{Swagger.Enabled}"
+  FeatureFlags__ClientIdentifier: "#{Octopus.FeatureFlags.ClientIdentifier}"

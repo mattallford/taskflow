@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using OpenFeature;
 using Serilog;
+using TaskFlow.Api.FeatureFlags;
 using TaskFlow.Core.Interfaces;
 using TaskFlow.Core.Services;
 using TaskFlow.Infrastructure.Data;
@@ -46,6 +48,9 @@ else
     builder.Services.AddDbContext<TaskDbContext>(options =>
         options.UseNpgsql(connectionString));
 }
+
+// Feature flags: controllers ask this client, which uses whichever provider is registered at startup
+builder.Services.AddSingleton<IFeatureClient>(_ => global::OpenFeature.Api.Instance.GetClient("TaskFlow.Api"));
 
 // Register application services
 builder.Services.AddScoped<ITaskRepository, TaskRepository>();
@@ -109,6 +114,8 @@ try
     {
         await InitializeDatabaseAsync(app.Services, useInMemory);
     }
+
+    await app.UseOctopusFeatureFlagsAsync(Environment.GetEnvironmentVariable("APP_VERSION") ?? "dev");
     
     app.Run();
 }

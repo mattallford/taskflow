@@ -92,6 +92,26 @@ Each pull request gets an environment named `pr-<number>`:
 - Closing the PR runs `.github/workflows/deprovision-ephemeral-environment.yml`, which calls the
   **delete-environment** runbook to remove the namespace and the environment.
 
+### Feature flags
+
+TaskFlow's flags live in the TaskFlow project (Project ➜ Feature Flags) and are read through
+OpenFeature with the Octopus providers: `Octopus.OpenFeature` in the API and
+`@octopusdeploy/openfeature` in the web app.
+
+- Octopus substitutes `#{Octopus.FeatureFlags.ClientIdentifier}` into each overlay's
+  ConfigMap as `FeatureFlags__ClientIdentifier`. The identifier is a JWT naming the project,
+  environment and release.
+- The API reads it at startup and checks for flag changes every 15 seconds. The web app is the
+  same image everywhere, so it fetches the identifier from `GET /api/config` and downloads the
+  flags once per page load.
+- Both download flags from `features.octopus.com`, which Octopus publishes to whenever a flag
+  changes. Without an identifier (local development), every flag uses its default in code.
+- `GET /api/features` shows how the API evaluates each flag, and why.
+
+| Flag | Effect |
+|---|---|
+| `dark-mode` | Switches the web app to a dark theme |
+
 ### Build information and release notes
 
 The workflow pushes build information for both images, so each release links to its build,

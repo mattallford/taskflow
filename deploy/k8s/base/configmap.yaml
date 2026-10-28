@@ -8,3 +8,6 @@ data:
   ASPNETCORE_URLS: "http://+:8080"
   # Each overlay sets this from the Octopus variable Swagger.Enabled
   Swagger__Enabled: "false"
+  # Each overlay sets this from Octopus.FeatureFlags.ClientIdentifier, a JWT identifying this
+  # project, environment and release to the Octopus Feature Flags service
+  FeatureFlags__ClientIdentifier: ""

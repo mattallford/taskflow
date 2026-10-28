@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useBooleanFlagValue } from '@openfeature/react-sdk';
 import { Task, TaskStatus, CreateTaskRequest } from './types';
 import { taskApi, ApiError } from './services/api';
 import TaskList from './components/TaskList';
@@ -6,6 +7,8 @@ import TaskForm from './components/TaskForm';
 import TaskFilters from './components/TaskFilters';
 import ErrorMessage from './components/ErrorMessage';
 import LoadingSpinner from './components/LoadingSpinner';
+import FeatureFlagStatus from './components/FeatureFlagStatus';
+import { FeatureFlagKeys, appVersion } from './featureFlags';
 import './styles/index.css';
 
 function App() {
@@ -15,6 +18,12 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | TaskStatus>('all');
   const [showAddForm, setShowAddForm] = useState(false);
+  const darkMode = useBooleanFlagValue(FeatureFlagKeys.DarkMode, false);
+
+  // The theme colours are CSS variables that switch on the data-theme attribute
+  useEffect(() => {
+    document.documentElement.dataset.theme = darkMode ? 'dark' : 'light';
+  }, [darkMode]);
 
   // Load tasks on component mount
   useEffect(() => {
@@ -163,7 +172,8 @@ function App() {
       </main>
 
       <footer className="footer">
-        TaskFlow {import.meta.env.VITE_APP_VERSION || 'dev'}
+        <div>TaskFlow {appVersion}</div>
+        <FeatureFlagStatus flagKey={FeatureFlagKeys.DarkMode} />
       </footer>
     </div>
   );
