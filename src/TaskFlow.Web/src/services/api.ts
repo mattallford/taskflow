@@ -1,7 +1,7 @@
 import { Task, CreateTaskRequest, UpdateTaskRequest, HealthResponse } from '../types';
 
-// Use relative URLs that match nginx ingress paths
-// No environment variables needed - works with nginx ingress routing
+// Use relative URLs: the Ingress routes /api and /health to the API
+// so no API base URL is needed in any environment
 class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);

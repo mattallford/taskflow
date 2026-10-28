@@ -1,334 +1,110 @@
-# TaskFlow Container Build Pipeline
+# Build and deployment pipeline
 
-## Overview
-
-This document describes the containerized build pipeline for TaskFlow, including Docker configuration, GitHub Actions workflows, and container registry integration.
-
-## Architecture
+GitHub Actions builds and versions TaskFlow, then hands each version to Octopus Deploy, which
+deploys it to Kubernetes and promotes it through the environments.
 
 ```
-TaskFlow Build Pipeline
-├── API Container (taskflow-api)
-│   ├── Multi-stage .NET 10 build
-│   ├── Security hardening
-│   └── Health checks
-├── Web Container (taskflow-web)  
-│   ├── Multi-stage React build (Vite)
-│   ├── Nginx production server
-│   └── Static asset optimization
-└── CI/CD Pipeline
-    ├── Automated testing
-    ├── Container builds
-    ├── Security scanning
-    └── Registry publishing
+pull request ──► build 1.1.47-pr21.3 ──► Octopus release (Ephemeral Environments channel)
+                                          └─► provisions pr-21, deploys, smoke tests
+merge to main ─► build 1.1.47 ─────────► Octopus release (Release channel)
+                                          └─► Dev (automatic) ──► Test ──► Production
 ```
 
-## Container Images
-
-### API Container (`taskflow-api`)
+## GitHub Actions (`.github/workflows/build.yml`)
 
-**Base Images:**
-- Build: `mcr.microsoft.com/dotnet/sdk:10.0`
-- Runtime: `mcr.microsoft.com/dotnet/aspnet:10.0`
-
-**Features:**
-- Multi-stage build for optimized image size
-- Non-root user execution (security)
-- Health check endpoint integration
-- Ready-to-run compilation for faster startup
-- Proper .dockerignore for efficient builds
-
-**Build Context:** Repository root (for solution-wide dependencies)
-**Dockerfile Location:** `src/TaskFlow.Api/Dockerfile`
-
-### Web Container (`taskflow-web`)
-
-**Base Images:**
-- Build: `node:24-alpine` (Vite)
-- Runtime: `nginx:1.30-alpine`
-
-**Features:**
-- Multi-stage build separating build and runtime
-- Production-optimized React build
-- Nginx with security headers and gzip compression
-- Non-root nginx execution
-- Asset caching and compression
-
-**Build Context:** `src/TaskFlow.Web/`
-**Dockerfile Location:** `src/TaskFlow.Web/Dockerfile`
-
-## Docker Configuration
-
-### File Structure
-```
-src/
-├── TaskFlow.Api/
-│   ├── Dockerfile
-│   └── .dockerignore
-└── TaskFlow.Web/
-    ├── Dockerfile
-    ├── .dockerignore
-    └── nginx.conf
-```
-
-### Security Features
-
-1. **Non-root Execution**
-   - API runs as `taskflow` user (UID 1001)
-   - Web runs as `nginx` user (UID 101)
-
-2. **Minimal Attack Surface**
-   - Alpine Linux where possible
-   - No unnecessary packages
-   - Proper file permissions
-
-3. **Health Checks**
-   - API: HTTP health endpoint
-   - Web: Static content availability
-
-## GitHub Actions Workflow
-
-### Simplified Build Workflow (`.github/workflows/build.yml`)
-
-**Triggers:**
-- Push to `main` and `develop` branches
-- Pull requests to `main`
-
-**Single Job: `test-and-build`**
-
-**Steps:**
-1. **Testing Phase**
-   - .NET 10 setup and dependency restoration
-   - .NET solution build and unit tests
-   - Node.js 24 setup and React frontend tests (Vitest)
-
-2. **Container Build Phase**
-   - Docker Buildx setup with caching
-   - Docker Hub authentication (push events only)
-   - API container build and push (AMD64)
-   - Web container build and push (AMD64)
-   - Build summary generation
-
-## Container Registry Integration
-
-### Docker Hub Configuration
-
-**Registry:** `docker.io`
-**Images:**
-- `[username]/taskflow-api`
-- `[username]/taskflow-web`
-
-**Required Secrets:**
-```yaml
-DOCKER_USERNAME: Docker Hub username
-DOCKER_PASSWORD: Docker Hub access token
-```
-
-### Image Tagging Strategy
-
-**Tags Generated:**
-- `[major].[minor].[patch]` (pushes to main, e.g. `1.1.42`): the next patch after the
-  latest `v*` Git tag. Each main build creates a GitHub release and tag (`v1.1.42`) so
-  the next build moves on to `1.1.43`.
-- `[major].[minor].[patch]-pr[number].[commits]` (pull requests, e.g. `1.1.43-pr16.3`):
-  a pre-release of the next patch, numbered by commits since the latest tag.
-- `latest` (pushes to main only)
-
-Each architecture is pushed by digest and combined into one multi-arch tag, so there are
-no per-architecture tags.
-
-To bump the minor or major version, include `+semver: minor` or `+semver: major` in a
-commit message.
+Runs on pull requests to `main` and pushes to `main` that change `src/`, `deploy/k8s/`,
+`deploy/octopus/`, `GitVersion.yml`, `README.md` or the workflow itself.
 
-The pre-release tag is what keeps branch builds out of Production: the Octopus
-Release channel only accepts versions without one, and the Ephemeral
-Environments channel only accepts versions with one.
+| Job | What it does |
+|---|---|
+| Calculate Version | GitVersion 6 works out the version (see below) |
+| Security Scan | Trivy scans the repository and uploads SARIF to the GitHub Security tab |
+| Test | `dotnet test` for the API and `npm test` (Vitest) for the web app |
+| Build | Builds each image natively on amd64 and arm64 runners and pushes it by digest |
+| Create Multi-Arch Manifests | Tags one multi-arch image per app from the two digests |
+| Deploy to Octopus | Creates the GitHub release, pushes build information and creates the Octopus release |
 
-**Example:**
-```
-taskflow-api:1.1.42
-taskflow-api:1.1.43-pr16.3
-taskflow-api:latest
-```
+### Versions
 
-## Local Development
+| Build | Version | Example |
+|---|---|---|
+| `main` | The next patch after the latest `v*` tag | `1.1.47` |
+| Pull request | A pre-release of that patch, numbered by commits since the tag | `1.1.47-pr21.3` |
 
-### Building Containers Locally
+Every `main` build creates a GitHub release and tag (`v1.1.47`) so the next build moves on to
+`1.1.48`. Put `+semver: minor` or `+semver: major` in a commit message to bump further.
 
-**API Container:**
-```bash
-# From repository root
-docker build -f src/TaskFlow.Api/Dockerfile -t taskflow-api:local .
-```
+The version is used everywhere: the image tags, the Octopus release number, `APP_VERSION` in
+both images (`/health` reports it and the web app shows it in the footer), and the build
+information pushed to Octopus.
 
-**Web Container:**
-```bash
-# From web directory
-cd src/TaskFlow.Web
-docker build -t taskflow-web:local .
-```
+### Images
 
-### Running Containers
+`mattallford/taskflow-api` and `mattallford/taskflow-web` on Docker Hub, one multi-arch tag per
+version (linux/amd64 and linux/arm64). `latest` only moves on `main` builds.
 
-**API Container:**
-```bash
-docker run -p 8080:8080 taskflow-api:local
-```
+- **API**: built on `mcr.microsoft.com/dotnet/sdk:10.0`, runs on `aspnet:10.0` as a non-root user
+- **Web**: built on `node:24-alpine` with Vite, served by `nginx:1.30-alpine` on port 3000
 
-**Web Container:**
-```bash
-docker run -p 3000:3000 taskflow-web:local
-```
+## Octopus Deploy
 
-## Configuration
+### Channels
 
-### Environment Variables
+The version's pre-release tag decides where a release can go:
 
-**API Container:**
-```bash
-ASPNETCORE_ENVIRONMENT=Production
-ASPNETCORE_URLS=http://+:8080
-DOTNET_RUNNING_IN_CONTAINER=true
-DOTNET_EnableDiagnostics=0
-```
+| Channel | Accepts | Lifecycle |
+|---|---|---|
+| Release (default) | Versions without a pre-release tag, from `refs/heads/main` | Dev (automatic) → Test → Production |
+| Ephemeral Environments | Versions with a pre-release tag | The PR's ephemeral environment |
 
-**Web Container:**
-- No runtime environment variables (static build)
-- Configuration embedded during build process
+This keeps branch builds out of Test and Production.
 
-### Ports
+### Deployment process
 
-| Service | Container Port | Description |
-|---------|----------------|-------------|
-| API | 8080 | HTTP API endpoint |
-| Web | 3000 | Nginx static server |
+1. **Kustomize deployment** applies `deploy/k8s/overlays/<environment>` (`#{OverlayPath}`) on
+   the `k8s-macos` Kubernetes agent. The overlays pin both images to the release's package
+   versions with `#{Octopus.Action.Package[taskflow-api].PackageVersion}`.
+2. **Smoke test** runs [`deploy/octopus/scripts/Invoke-SmokeTest.ps1`](../deploy/octopus/scripts/Invoke-SmokeTest.ps1)
+   from Git on the same agent. It checks that `/health` is Healthy and reports the release's
+   version, and that `/` and `/api/tasks` respond. `*.localhost` only resolves on the Mac, so the
+   script calls Traefik's in-cluster Service with the app's `Host` header instead.
 
-### Health Checks
+PR releases point both steps' Git resources at the PR branch, so a PR deploys its own
+manifests and smoke test.
 
-**API Health Check:**
-- Endpoint: `http://localhost:8080/health`
-- Interval: 30s
-- Timeout: 10s
-- Start period: 30s
-- Retries: 3
+### Project variables
 
-**Web Health Check:**
-- Endpoint: `http://localhost:3000/`
-- Interval: 30s
-- Timeout: 10s
-- Start period: 10s
-- Retries: 3
+| Variable | Value |
+|---|---|
+| `environmentName` | `#{Octopus.Environment.Name \| ToLower}` |
+| `Kubernetes.Namespace` | `taskflow-#{environmentName}` |
+| `OverlayPath` | `deploy/k8s/overlays/#{Octopus.Environment.Name \| ToLower}`, or `deploy/k8s/overlays/ephemeralenvironments` for ephemeral environments |
+| `AppHost` | `taskflow-#{environmentName}.localhost`, or `taskflow.localhost` in Production |
 
-## Security Considerations
+### Ephemeral environments
 
-### Container Security
+Each pull request gets an environment named `pr-<number>`:
 
-1. **Non-root Execution**
-   - All containers run as non-root users
-   - Proper file ownership and permissions
+- The **provision-environment** runbook creates the namespace and sets the environment URLs
+  shown in Octopus. Octopus runs it once, when the environment is created.
+- Each new commit on the PR creates a release and deploys it.
+- Closing the PR runs `.github/workflows/deprovision-ephemeral-environment.yml`, which calls the
+  **delete-environment** runbook to remove the namespace and the environment.
 
-2. **Minimal Base Images**
-   - Alpine Linux for reduced attack surface
-   - Only necessary packages installed
+### Build information and release notes
 
-3. **Basic Security**
-   - Health checks for container monitoring
-   - Secure base image selection
+The workflow pushes build information for both images, so each release links to its build,
+branch and commits, and the release notes template lists them. Commits are only included for
+`main` builds; GitHub doesn't send them for pull request builds.
 
-### Network Security
+## Kubernetes
 
-1. **Port Configuration**
-   - Non-privileged ports (8080, 3000)
-   - No unnecessary port exposure
+`deploy/k8s/base` holds the shared manifests, and each overlay sets the namespace, Ingress host,
+database name and image tags for one environment.
 
-2. **Communication**
-   - HTTP within container network
-   - TLS termination at ingress layer
-
-## Monitoring and Observability
-
-### Build Metrics
-
-1. **GitHub Actions**
-   - Build success/failure rates
-   - Build duration tracking
-   - Test execution results
-
-2. **Container Metrics**
-   - Image build times
-   - Image size tracking
-   - Push success rates
-
-### Logging
-
-1. **Build Logs**
-   - GitHub Actions workflow logs
-   - Container build output
-   - Test execution results
-
-2. **Runtime Logs**
-   - Application logs via stdout/stderr
-   - Nginx access/error logs
-   - Health check monitoring
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Build Failures**
-   - Check dependency compatibility
-   - Verify base image availability
-   - Review .dockerignore patterns
-
-2. **Size Optimization**
-   - Review multi-stage build efficiency
-   - Check for unnecessary files
-   - Optimize layer caching
-
-3. **Security Scan Failures**
-   - Update base images regularly
-   - Review vulnerability reports
-   - Implement security patches
-
-### Debug Commands
-
-**Check container layers:**
-```bash
-docker history taskflow-api:latest
-```
-
-**Inspect container:**
-```bash
-docker inspect taskflow-api:latest
-```
-
-**Test health checks:**
-```bash
-docker run --rm taskflow-api:latest curl -f http://localhost:8080/health
-```
-
-## Future Enhancements
-
-### Potential Improvements
-
-1. **Advanced Security**
-   - Container vulnerability scanning
-   - Supply chain security (SBOM)
-   - Image signing and verification
-
-2. **Build Optimization**
-   - Multi-architecture builds (ARM64)
-   - Advanced layer caching
-   - Build parallelization
-
-3. **Enhanced CI/CD**
-   - Integration testing with containers
-   - Automated deployment pipelines
-   - Blue-green deployment support
-
----
-
-**Document Version:** 1.0  
-**Last Updated:** $(date)  
-**Next Review:** $(date -d '+1 month')  
-**Owner:** Platform Engineering Team
+- **Rollouts**: surge-only, with a `preStop` delay, so Traefik stops routing to a pod before it
+  shuts down
+- **API probes**: a startup probe waits up to 2 minutes for PostgreSQL; readiness uses `/health`;
+  liveness uses `/health/live`, so a database outage removes the pod from service instead of
+  restarting it
+- **PostgreSQL** uses `emptyDir` storage, so its data doesn't survive a pod restart
